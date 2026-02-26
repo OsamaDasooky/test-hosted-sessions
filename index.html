@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Acme Design</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <link href="https://fonts.googleapis.com/css?family=Lato:400,700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset ── */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ── Base ── */
+    body {
+      font-family: 'Lato', sans-serif;
+      background: #f0f4f8;
+      color: #222;
+    }
+
+    /* ── Layout helpers ── */
+    .row         { display: flex; flex-direction: row; align-items: center; }
+    .col         { display: flex; flex-direction: column; }
+    .flex1       { flex: 1; }
+    .justify-end { justify-content: flex-end; }
+    .align-center { align-items: center; }
+    .bold  { font-weight: 700; }
+    .grey  { color: #666; }
+    .lPad20 { padding-left: 20px; }
+    .vPad20 { padding: 0 20px; }
+    .hPad10 { padding: 10px 0; }
+    .hPad20 { padding: 20px 0; }
+
+    /* ── Navigation bar ── */
+    .navbar {
+      display: flex;
+      align-items: center;
+      background: #fff;
+      padding: 14px 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .navbar h2 { font-size: 1.4rem; color: #1a1a2e; flex: 1; }
+    .tap-item {
+      margin-left: 24px;
+      cursor: pointer;
+      color: #555;
+      font-size: .95rem;
+      transition: color .2s;
+    }
+    .tap-item:hover { color: #253cfc; }
+    @media screen and (max-width: 850px) { .tap-item { display: none; } }
+
+    /* ── Language selector ── */
+    .select-menu { position: relative; margin-left: 20px; }
+    .select-btn {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      border: 1px solid #ddd; border-radius: 8px; padding: 6px 14px;
+      background: #fff; user-select: none; font-size: .9rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.06);
+      transition: border-color .2s;
+    }
+    .select-btn:hover { border-color: #253cfc; }
+    .select-btn i { font-size: 18px; transition: transform .3s; }
+    .select-menu.active .select-btn i { transform: rotate(-180deg); }
+    .options {
+      display: none; position: absolute; right: 0; top: calc(100% + 8px);
+      background: #fff; border: 1px solid #ddd; border-radius: 10px;
+      list-style: none; min-width: 150px; z-index: 100;
+      box-shadow: 0 6px 20px rgba(0,0,0,.1);
+    }
+    .select-menu.active .options { display: block; }
+    .option {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; cursor: pointer; border-radius: 8px; font-size: .9rem;
+    }
+    .option:hover { background: #f5f7ff; }
+    .option img { width: 22px; height: 22px; border-radius: 3px; }
+
+    /* ── Page body ── */
+    .cartBody {
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+      max-width: 1280px;
+      margin: 32px auto;
+      padding: 0 32px;
+    }
+    @media screen and (max-width: 850px) {
+      .cartBody { flex-direction: column; padding: 0 16px; }
+    }
+
+    /* ── Left panel (cart + options) ── */
+    .left-panel {
+      flex: 0.55;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── Card wrapper ── */
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    .card h2 { font-size: 1.05rem; margin-bottom: 12px; color: #1a1a2e; }
+    .card h3 { font-size: .88rem; color: #888; margin: 10px 0 4px; text-transform: uppercase; letter-spacing: .04em; }
+
+    /* ── Cart table ── */
+    .cart-table { width: 100%; border-collapse: collapse; }
+    .cart-table th, .cart-table td {
+      padding: 10px 8px;
+      font-size: .9rem;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .cart-table th { font-weight: 700; color: #444; text-align: left; }
+    .cart-table td:not(:first-child),
+    .cart-table th:not(:first-child) { text-align: right; }
+    .cart-totals { text-align: right; padding: 10px 8px 0; font-size: .9rem; }
+    .cart-totals div { margin-top: 6px; }
+    .cart-totals .label { color: #888; font-weight: 700; margin-right: 16px; }
+
+    /* ── Options sections ── */
+    .checkbox-section {
+      background: #fafbff;
+      border: 1px solid #e8ecff;
+      border-radius: 10px;
+      padding: 16px 18px;
+    }
+    .checkbox-section label {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 8px; cursor: pointer; font-size: .88rem; color: #444;
+    }
+    .checkbox-section label input { accent-color: #253cfc; }
+
+    /* ── Text / number inputs ── */
+    .field-group { display: flex; flex-direction: column; gap: 6px; }
+    .field-group label { font-size: .85rem; color: #555; font-weight: 600; }
+    .field-group input, .field-group select {
+      padding: 9px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: .92rem;
+      background: #fff;
+      transition: border-color .2s;
+      font-family: inherit;
+    }
+    .field-group input:focus, .field-group select:focus {
+      outline: none; border-color: #253cfc;
+    }
+
+    /* ── 3DS Modal ── */
+    .modal {
+      display: none; position: fixed; z-index: 200;
+      inset: 0; background: rgba(0,0,0,.5);
+      justify-content: center; align-items: center;
+    }
+    .modal.open { display: flex; }
+    .modal.open { display: flex; }
+    .modal-content {
+      background: #fff; border-radius: 12px; height: 65%; width: 35%;
+      padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    }
+    .modal-content iframe { border: none; }
+    .modal-content .threeDS_iframe { height: 100%; }
+
+    /* ── Payment panel (right) ── */
+    .paymentContainer {
+      flex: 0.45;
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px 28px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+      position: sticky;
+      top: 80px;
+    }
+    @media screen and (min-width: 1300px) { .paymentContainer { flex: 0.35; } }
+    .paymentContainer > h2 { font-size: 1.1rem; margin-bottom: 16px; color: #1a1a2e; }
+
+    /* ── State panels ── */
+    [data-show] { display: none; }
+    [data-show='LOADING'] .loader {
+      display: flex; justify-content: center; align-items: center; padding: 40px 0;
+    }
+    [data-show='ERROR']                { color: #c0392b; font-weight: 700; padding: 20px 0; }
+    [data-show='PAYMENT_DONE']         { color: #27ae60; font-weight: 700; padding: 20px 0; font-size: 1.1rem; }
+    [data-show='PARTIAL_AUTH_DECLINED']{ color: #e67e22; font-weight: 700; padding: 20px 0; }
+
+    #mount-point { height: 400px; }
+
+    /* ── Make Payment button ── */
+    .checkoutButton {
+      height: 46px; width: 100%;
+      border-radius: 8px;
+      background: #253cfc;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      margin-top: 16px;
+      transition: background .2s, opacity .2s;
+      font-family: inherit;
+    }
+    .checkoutButton:hover:not(:disabled) { background: #1a2fd4; }
+    .checkoutButton:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Currency row ── */
+    .currency-row { display: flex; flex-direction: column; margin-top: 12px; gap: 8px; }
+    .currency-list {
+      width: 100%; height: 40px;
+      background: #fafbff; border-radius: 8px;
+      border: 1px solid #ddd; padding: 8px 12px;
+      font-size: .92rem; font-family: inherit;
+    }
+    #currency-conversion-value {
+      display: none; flex-direction: row; padding: 8px 0;
+      margin-bottom: 8px; justify-content: space-between;
+      font-size: .85rem; color: #444;
+    }
+
+    /* ── VIS installment cards ── */
+    .flex-container { display: flex; flex-direction: column; margin: 10px 0; font-size: .85rem; gap: 6px; }
+    .flex-item {
+      display: flex; flex-direction: column; flex-wrap: wrap;
+      padding: 12px 14px; border: 2px solid #e8e8e8;
+      background: #fff; border-radius: 10px; cursor: pointer;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .flex-item:hover { border-color: #b0bbff; }
+    .flex-item.selected { border-color: #253cfc; background: #f5f7ff; }
+    .flex-item.expanded .terms-and-conditions { display: block; }
+    .terms-and-conditions {
+      display: none; padding: 10px; border: 1px solid #e0e0e0;
+      border-radius: 6px; margin-top: 10px; background: #fafafa;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Navigation ── -->
+  <nav class="navbar">
+    <h2>Acme Design</h2>
+    <span class="tap-item">Contact</span>
+    <span class="tap-item">About Us</span>
+    <span class="tap-item">Shop</span>
+    <span class="tap-item lPad20">User Account</span>
+    <div class="select-menu" id="langMenu">
+      <div class="select-btn" id="selectedLanguageBtn">
+        <span id="selectedLanguage">English</span>
+        <i class="bx bx-chevron-down">▾</i>
+      </div>
+      <ul class="options">
+        <li class="option">
+          <img src="data:image/svg+xml,%3C?xml version='1.0' encoding='utf-8'?%3E%3Csvg width='800px' height='800px' viewBox='0 0 36 36' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' aria-hidden='true' role='img' class='iconify iconify--twemoji' preserveAspectRatio='xMidYMid meet'%3E%3Cpath fill='%2300247D' d='M0 9.059V13h5.628zM4.664 31H13v-5.837zM23 25.164V31h8.335zM0 23v3.941L5.63 23zM31.337 5H23v5.837zM36 26.942V23h-5.631zM36 13V9.059L30.371 13zM13 5H4.664L13 10.837z'%3E%3C/path%3E%3Cpath fill='%23CF1B2B' d='M25.14 23l9.712 6.801a3.977 3.977 0 0 0 .99-1.749L28.627 23H25.14zM13 23h-2.141l-9.711 6.8c.521.53 1.189.909 1.938 1.085L13 23.943V23zm10-10h2.141l9.711-6.8a3.988 3.988 0 0 0-1.937-1.085L23 12.057V13zm-12.141 0L1.148 6.2a3.994 3.994 0 0 0-.991 1.749L7.372 13h3.487z'%3E%3C/path%3E%3Cpath fill='%23EEE' d='M36 21H21v10h2v-5.836L31.335 31H32a3.99 3.99 0 0 0 2.852-1.199L25.14 23h3.487l7.215 5.052c.093-.337.158-.686.158-1.052v-.058L30.369 23H36v-2zM0 21v2h5.63L0 26.941V27c0 1.091.439 2.078 1.148 2.8l9.711-6.8H13v.943l-9.914 6.941c.294.07.598.116.914.116h.664L13 25.163V31h2V21H0zM36 9a3.983 3.983 0 0 0-1.148-2.8L25.141 13H23v-.943l9.915-6.942A4.001 4.001 0 0 0 32 5h-.663L23 10.837V5h-2v10h15v-2h-5.629L36 9.059V9zM13 5v5.837L4.664 5H4a3.985 3.985 0 0 0-2.852 1.2l9.711 6.8H7.372L.157 7.949A3.968 3.968 0 0 0 0 9v.059L5.628 13H0v2h15V5h-2z'%3E%3C/path%3E%3Cpath fill='%23CF1B2B' d='M21 15V5h-6v10H0v6h15v10h6V21h15v-6z'%3E%3C/path%3E%3C/svg%3E" alt="EN" />
+          <span class="option-text">English</span>
+        </li>
+        <li class="option">
+          <img src="data:image/svg+xml,%3C?xml version='1.0' encoding='iso-8859-1'%3F%3E%3Csvg version='1.1' id='Layer_1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' viewBox='0 0 512.001 512.001' xml:space='preserve'%3E%3Cpath style='fill:%2373AF00;' d='M473.655,88.276H158.897v111.816H512v-73.471C512,105.443,494.833,88.276,473.655,88.276z'/%3E%3Cpath style='fill:%23464655;' d='M158.897,423.724h314.759c21.177,0,38.345-17.167,38.345-38.345v-73.471H158.897V423.724z'/%3E%3Crect x='158.9' y='200.09' style='fill:%23F5F5F5;' width='353.1' height='111.81'/%3E%3Cpath style='fill:%23FF4B55;' d='M38.345,88.276C17.167,88.276,0,105.443,0,126.621V385.38c0,21.177,17.167,38.345,38.345,38.345h120.552V88.276H38.345z'/%3E%3C/svg%3E" alt="AR" />
+          <span class="option-text">Arabic</span>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- ── Page body ── -->
+  <div class="cartBody">
+
+    <!-- ════════ LEFT PANEL ════════ -->
+    <div class="left-panel">
+
+      <!-- Cart -->
+      <div class="card">
+        <h2>🛒 Shopping Cart</h2>
+        <table class="cart-table">
+          <thead>
+            <tr><th>Product</th><th>Price</th><th>Qty</th><th>Total</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Steadler Pen</td><td>₹ 220</td><td>5</td><td>₹ 1,100.00</td></tr>
+            <tr><td>Sharpie Ultra Fine</td><td>₹ 180</td><td>7</td><td>₹ 1,260.00</td></tr>
+          </tbody>
+        </table>
+        <div class="cart-totals">
+          <div><span class="label">Subtotal</span>₹ 2,360.00</div>
+          <div><span class="label">Shipping</span>₹ 0.00</div>
+        </div>
+      </div>
+
+      <!-- Cardholder name -->
+      <div class="card checkbox-section">
+        <h2>Prepopulated Cardholder Name</h2>
+        <label><input type="radio" name="nameOption" value="1" /> Bob Doe (first + last)</label>
+        <label><input type="radio" name="nameOption" value="2" /> Bob only (first name)</label>
+        <label><input type="radio" name="nameOption" value="3" /> Doe only (last name)</label>
+        <label><input type="radio" name="nameOption" value="4" /> No name</label>
+      </div>
+
+      <!-- Realm name -->
+      <div class="card checkbox-section">
+        <h2>Choose Realm Name</h2>
+        <h3>Sandbox</h3>
+        <label><input type="radio" name="realmName" value="ni" /> NI</label>
+        <label><input type="radio" name="realmName" value="SteveAcquirer" /> SteveAcquirer</label>
+        <label><input type="radio" name="realmName" value="UMB" /> UMB</label>
+        <h3>Dev</h3>
+        <label><input type="radio" name="realmName" value="qaintegration" /> qaintegration</label>
+        <label><input type="radio" name="realmName" value="osamaTenant" /> osamaTenant</label>
+        <label><input type="radio" name="realmName" value="superTenant" /> superTenant</label>
+        <h3>KSA UAT</h3>
+        <label><input type="radio" name="realmName" value="NIARABIA" /> NIARABIA</label>
+        <div class="field-group">
+          <label for="currency">Or Enter your realmName</label>
+          <input type="text" id="realmName"  />
+        </div>
+      </div>
+
+      <!-- Toggles -->
+      <div class="card checkbox-section">
+        <h2>Options</h2>
+        <label><input type="checkbox" id="isUsingFake" /> Disable routing to fake API for MCP</label>
+        <label><input type="checkbox" id="enableDcc" /> Enable DCC flow (prop service must be enabled)</label>
+        <label><input type="checkbox" id="showInputLabel" /> Show input label style</label>
+        <label><input type="checkbox" id="hideLoadingBehavior" /> Hide loading behavior</label>
+        <label><input type="checkbox" id="showDigitalPayments" /> Show Digital Payments</label>
+      </div>
+
+      <!-- Order settings -->
+      <div class="card" style="display:flex;flex-direction:column;gap:14px;">
+        <h2>Order Settings</h2>
+        <div class="field-group">
+          <label for="orderType">Order Type</label>
+          <select id="orderType">
+            <option value="PURCHASE">Purchase</option>
+            <option value="AUTH">Auth</option>
+            <option value="SALE">Sale</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="orderAmount">Order Amount (minor units)</label>
+          <input type="number" id="orderAmount" placeholder="e.g. 10000" />
+        </div>
+        <div class="field-group">
+          <label for="currency">Currency Code</label>
+          <input type="text" id="currency" placeholder="e.g. AED" />
+        </div>
+        <div class="field-group">
+          <label for="emailAddress">Email Address</label>
+          <input type="text" id="emailAddress" placeholder="customer@example.com" />
+        </div>
+        <div class="field-group">
+          <label for="phoneNumber">Phone Number</label>
+          <input type="text" id="phoneNumber" placeholder="501234567" />
+        </div>
+      </div>
+
+    </div><!-- end left-panel -->
+
+    <!-- 3DS Modal -->
+    <div class="modal" id="iframe-modal">
+      <div class="modal-content">
+        <div id="3ds_iframe" class="threeDS_iframe"></div>
+      </div>
+    </div>
+
+    <!-- ════════ RIGHT PANEL (Payment) ════════ -->
+    <div class="paymentContainer" id="payment-wrapper">
+      <h2 class="bold">Payment Info</h2>
+      <div id="payment-section">
+
+        <div data-show="LOADING">
+          <div class="loader">
+            <svg width="44" height="44" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+              <path fill="#253cfc" d="M25.251,6.461c-10.318,0-18.683,8.365-18.683,18.683h4.068c0-8.071,6.543-14.615,14.615-14.615V6.461z">
+                <animateTransform attributeType="xml" attributeName="transform" type="rotate"
+                  from="0 25 25" to="360 25 25" dur="0.6s" repeatCount="indefinite"/>
+              </path>
+            </svg>
+          </div>
+        </div>
+
+        <div data-show="ERROR">⚠️ Error loading pay page. Please refresh.</div>
+
+        <div data-show="MAKE_PAYMENT" style="display:none; flex-direction:column;">
+          <div id="mount-point"></div>
+          <div data-show="SHOW_PAYMENT_OPTION" style="display:none">
+            <div id="installment-option" data-show="INSTALLMENT_OPTIONS"></div>
+            <div id="vis-plan" data-show="INSTALLMENT_PLAN"></div>
+            <div class="currency-row" id="currency-conversion-block">
+              <div style="height:20px" id="currency-input"></div>
+              <div style="height:20px" id="currency-conversion"></div>
+              <select class="currency-list" id="currency-list">
+                <option value="" disabled>Select Currency</option>
+              </select>
+              <div id="currency-conversion-value">
+                <span>Converted Amount</span>
+                <span id="converted-amount-value"></span>
+              </div>
+            </div>
+            <button id="payment-btn" class="checkoutButton" disabled>Make Payment</button>
+          </div>
+        </div>
+
+        <div data-show="PAYMENT_DONE">✅ Successfully Paid!</div>
+        <div data-show="PARTIAL_AUTH_DECLINED">⚠️ Partial Auth Declined.</div>
+
+      </div>
+    </div>
+
+  </div><!-- end cartBody -->
+
+  <!-- ══════════════════════════════════════════════════════
+       JavaScript – all logic in named functions
+  ══════════════════════════════════════════════════════ -->
+  <script type="module">
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1. SDK BOOTSTRAP
+    // ─────────────────────────────────────────────────────────────────────────
+    function loadSDK() {
+      const script = document.createElement('script');
+      script.setAttribute('id', 'hosted-sessions-sdk');
+      script.setAttribute('src', 'https://paypage.sandbox.ngenius-payments.com/hosted-sessions/sdk.js');
+      script.addEventListener('load', initPaymentPage);
+      document.head.appendChild(script);
+    }
+
+    loadSDK();
+
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 2. MAIN INIT  – runs after SDK has loaded
+    // ─────────────────────────────────────────────────────────────────────────
+    function initPaymentPage() {
+
+      // ── Config & persisted state ──────────────────────────────────────────
+      const outletRef = 'db1bcaaa-3ae6-47ec-a11a-91f3a5836cf7';
+      const apiKey    = 'YWE1MTQzNzMtNmMwMS00ZGUyLWJmYWUtY2ZlZmJiYmMzYmQ1OjcxMTRhYjhlLWU1ODAtNGI3Zi05YzBmLTk3YWM3NzEwYmE2ZQ==';
+      let   realmName = JSON.parse(localStorage.getItem('realmName')) || '';
+
+      const selectedLanguageFromLocalStorage = localStorage.getItem('selectedLanguage');
+      const defaultLanguage  = selectedLanguageFromLocalStorage || 'en';
+      const orderAction      = 'SALE';
+      const orderAmount      = localStorage.getItem('amount') || 100;
+      const emailAddress     = localStorage.getItem('emailAddress');
+      const phoneNumber      = localStorage.getItem('phoneNumber');
+
+      const isUsingFake          = JSON.parse(localStorage.getItem('isUsingFake'));
+      const showInputLabel       = JSON.parse(localStorage.getItem('showInputLabel'));
+      const enableDcc            = JSON.parse(localStorage.getItem('enableDcc'));
+      const hideLoadingBehavior  = JSON.parse(localStorage.getItem('hideLoadingBehavior'));
+      const isMultiplePaymentMethods = JSON.parse(localStorage.getItem('showDigitalPayments'));
+      const selectedBillingAddress   = JSON.parse(localStorage.getItem('billingAddress'));
+
+      const isMCPEnabled = true;
+
+      // ── Utility ───────────────────────────────────────────────────────────
+      function minorToMajorUnits(value, minorUnit = 2) {
+        return (value / 10 ** minorUnit).toFixed(minorUnit);
+      }
+
+      // ── Build order ───────────────────────────────────────────────────────
+      const formattedAmountIntl = new Intl.NumberFormat('en-GB', {
+        style: 'currency',
+        currency: localStorage.getItem('currency') || 'AED'
+      });
+      const { minimumFractionDigits } = formattedAmountIntl.resolvedOptions();
+
+      const orderDetails = {
+        amount:          orderAmount,
+        formattedAmount: minorToMajorUnits(orderAmount, minimumFractionDigits),
+        currency:        localStorage.getItem('currency') || 'AED'
+      };
+
+      function selectedOrderTypeFromLocalStorage() {
+        return localStorage.getItem('orderType') || orderAction;
+      }
+      function selectedCurrencyFromLocalStorage() {
+        return localStorage.getItem('currency') || 'AED';
+      }
+      
+      const order = {
+        action: selectedOrderTypeFromLocalStorage(),
+        amount: { currencyCode: selectedCurrencyFromLocalStorage(), value: orderAmount },
+        language: selectedLanguageFromLocalStorage || defaultLanguage,
+        billingAddress: {
+          firstName: selectedBillingAddress ? selectedBillingAddress.firstName : null,
+          lastName:  selectedBillingAddress ? selectedBillingAddress.lastName  : null
+        }
+      };
+      if (emailAddress) order.emailAddress = emailAddress;
+      if (phoneNumber)  order.phoneNumber  = { countryCode: '+971', subscriber: phoneNumber };
+
+      const merchantCurrency = order.amount.currencyCode;
+
+      // ── SDK style ─────────────────────────────────────────────────────────
+      const style = {
+        base: {
+          fontUrl:    'https://fonts.googleapis.com/css?family=Open+Sans&display=swap',
+          fontFamily: 'Open Sans',
+          textAlign:  'center'
+        },
+        input: {
+          borderStyle: 'solid', borderWidth: '1px',
+          padding: '10px 5px', borderColor: 'black', borderRadius: '10px'
+        },
+        showInputsLabel: showInputLabel && showInputLabel.value
+      };
+
+      // ── State machine ─────────────────────────────────────────────────────
+      const stateMachine = {
+        initial: 'INITIAL',
+        states: {
+          INITIAL:      { on: { LOAD_PAYPAGE: 'LOADING' } },
+          LOADING:      { on: { AUTH_ERROR: 'ERROR', AUTH_SUCCESS: 'MAKE_PAYMENT', PAYMENT: 'PAYMENT_DONE', TOKENIZE_CARD_ERROR: 'ERROR', PARTIAL_AUTH_DECLINED: 'PARTIAL_AUTH_DECLINED' } },
+          SUCCESS:      { on: { TOKENIZE_CARD_SUCCESS: 'MAKE_PAYMENT', TOKENIZE_CARD_ERROR: 'ERROR', PARTIAL_AUTH_DECLINED: 'PARTIAL_AUTH_DECLINED' } },
+          MAKE_PAYMENT: { on: { PAYMENT_LOADING: 'LOADING', PAYMENT: 'PAYMENT_DONE', TOKENIZE_CARD_ERROR: 'ERROR', PARTIAL_AUTH_DECLINED: 'PARTIAL_AUTH_DECLINED' } }
+        }
+      };
+
+      const paymentArea  = document.querySelector('#payment-section');
+      const threeDSModal = document.querySelector('#iframe-modal');
+      let current          = stateMachine.initial;
+      let sessionId        = null;
+      let isDccSelected    = false;
+      let selectedFlexItem = null;
+      let selectedVisPlan  = null;
+      let mcpResponse      = [];
+
+
+      // ═══════════════════════════ STATE MACHINE ════════════════════════════
+
+      function transition(state, event) {
+        return stateMachine.states[state].on[event] || state;
+      }
+
+      function changeUI(state) {
+        paymentArea.dataset.state = state;
+        document.querySelectorAll('[data-show]').forEach(el => (el.style.display = 'none'));
+        const target = document.querySelector(`[data-show='${state}']`);
+        if (target) target.style.display = 'block';
+      }
+
+      function send(event) {
+        current = transition(current, event);
+        changeUI(current);
+      }
+
+
+      // ═══════════════════════════ BUTTON HELPERS ═══════════════════════════
+
+      function disableMakePaymentButton() {
+        const btn = document.getElementById('payment-btn');
+        btn.disabled = true;
+        btn.style.opacity = 0.5;
+      }
+
+      function enableMakePaymentButton() {
+        const btn = document.getElementById('payment-btn');
+        btn.disabled = false;
+        btn.style.opacity = 1;
+      }
+
+
+      // ═══════════════════════════ API CLIENT ═══════════════════════════════
+
+      function checkStatus(response) {
+        if (response.ok) return response;
+        const error = new Error(response.statusText);
+        error.response = response;
+        return Promise.reject(error);
+      }
+
+      function apiClient(uri, method = 'GET', body) {
+        return fetch(uri, {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          method
+        }).then(checkStatus).then(res => res.json());
+      }
+
+      function makePaymentApi(outletRef, sessionId, order, realmName) {
+        const qs  = realmName ? `?realmName=${realmName}` : '';
+        return apiClient(`/api/hosted-sessions/payment${qs}`, 'POST', {order, sessionId, outletRef});
+      }
+
+
+      // ═══════════════════════════ VIS PLANS ════════════════════════════════
+
+      function getSelectedVisPlan() { return selectedVisPlan; }
+
+      function formatText(text) {
+        let out = text.replace(/\n/g, '<br>');
+        out = out.replace(/(\d+\))\s/g, '<p>$1 ');
+        out = out.replace(/\b(http[s]?:\/\/\S+)\b/gi, '<a href="$1" target="_blank">$1</a>');
+        return out;
+      }
+
+      function buildVisFlexItem(visOption, index) {
+        const freqMap = {
+          MONTHLY: 'Monthly', WEEKLY: 'Weekly',
+          'BI-MONTHLY': 'Bi-monthly', 'BI-WEEKLY': 'Bi-weekly'
+        };
+
+        const flexItem = document.createElement('div');
+        flexItem.classList.add('flex-item');
+
+        const header = document.createElement('div');
+        header.innerHTML = `<strong>PAY IN ${visOption.numberOfInstallments}</strong>
+          ${visOption.numberOfInstallments === 'FULL'
+            ? `<p>${minorToMajorUnits(order.amount.value)} ${order.amount.currencyCode}</p>`
+            : ''}`;
+        flexItem.appendChild(header);
+
+        let checkbox = null, readMoreLink = null, readLessLink = null;
+
+        if (index !== 0) {
+          const installmentDiv = document.createElement('div');
+          installmentDiv.textContent = `${freqMap[visOption.installmentFrequency]} Installment: ${minorToMajorUnits(visOption.costInfo.lastInstallment.totalAmount)} ${visOption.costInfo.currency}`;
+          flexItem.appendChild(installmentDiv);
+
+          const rateDiv = document.createElement('div');
+          rateDiv.textContent = `${freqMap[visOption.installmentFrequency]} Rate: ${(visOption.costInfo.annualPercentageRate / 100).toFixed(2)} %`;
+          flexItem.appendChild(rateDiv);
+
+          const feeDiv = document.createElement('div');
+          feeDiv.textContent = `Processing Fees: ${minorToMajorUnits(visOption.costInfo.totalUpfrontFees)} ${visOption.costInfo.currency}`;
+          flexItem.appendChild(feeDiv);
+
+          const engTnC = visOption.termsAndConditions.filter(t => t.languageCode === 'eng');
+          const termsContainer = document.createElement('div');
+          termsContainer.classList.add('terms-and-conditions');
+
+          checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.style.cssText = 'width:18px;height:18px;margin-right:4px;';
+          checkbox.id = `checkbox-${engTnC[0].languageCode}`;
+          checkbox.disabled = true;
+          termsContainer.appendChild(checkbox);
+
+          const label = document.createElement('label');
+          label.setAttribute('for', checkbox.id);
+          label.textContent = ' Terms and Conditions: ';
+          label.style.cssText = 'vertical-align:bottom;line-height:18px;';
+          termsContainer.appendChild(label);
+
+          readMoreLink = document.createElement('a');
+          readMoreLink.textContent = 'Read More';
+          readMoreLink.style.cssText = 'vertical-align:bottom;line-height:18px;cursor:pointer;color:#253cfc;';
+          termsContainer.appendChild(readMoreLink);
+
+          const tncText = document.createElement('div');
+          tncText.innerHTML = formatText(engTnC[0].text);
+          tncText.style.cssText = 'font-size:12px;display:none;margin-top:6px;';
+          termsContainer.appendChild(tncText);
+
+          readMoreLink.addEventListener('click', e => {
+            e.preventDefault(); e.stopPropagation();
+            tncText.style.display = tncText.style.display === 'none' ? 'inline' : 'none';
+            readMoreLink.style.display = 'none';
+            checkbox.disabled = false;
+            readLessLink = document.createElement('a');
+            readLessLink.textContent = 'Read Less';
+            readLessLink.style.cssText = 'margin-left:4px;cursor:pointer;color:#253cfc;';
+            termsContainer.appendChild(readLessLink);
+            readLessLink.addEventListener('click', ev => {
+              ev.preventDefault(); ev.stopPropagation();
+              tncText.style.display = 'none';
+              readLessLink.style.display = 'none';
+              readMoreLink.style.display = 'inline';
+              if (!checkbox.checked) checkbox.disabled = true;
+              else selectedVisPlan = null;
+            });
+          });
+
+          flexItem.appendChild(termsContainer);
+
+          checkbox.addEventListener('click', e => {
+            if (e.target.checked) { selectedVisPlan = visOption; enableMakePaymentButton(); }
+            else { disableMakePaymentButton(); selectedVisPlan = null; }
+            if (readMoreLink.style.display === 'inline') checkbox.disabled = true;
+            e.stopPropagation();
+          });
+        }
+
+        flexItem.addEventListener('click', e => {
+          if (readLessLink) readLessLink.click();
+          if (!e.target.closest('input[type="checkbox"]')) {
+            flexItem.classList.toggle('expanded');
+            if (visOption.numberOfInstallments === 'FULL' && flexItem.classList.contains('expanded')) {
+              enableMakePaymentButton(); selectedVisPlan = visOption;
+            } else { disableMakePaymentButton(); selectedVisPlan = null; }
+            flexItem.getElementsByTagName('strong')[0].style.color = '#253cfc';
+            if (selectedFlexItem && selectedFlexItem !== flexItem) {
+              selectedFlexItem.classList.remove('selected', 'expanded');
+              selectedFlexItem.getElementsByTagName('strong')[0].style.color = '#222';
+              const prev = selectedFlexItem.querySelector('input[type="checkbox"]');
+              if (prev) prev.checked = false;
+            }
+            flexItem.classList.toggle('selected');
+            if (!flexItem.classList.contains('selected')) {
+              if (checkbox) checkbox.checked = false;
+              selectedVisPlan = null;
+              flexItem.getElementsByTagName('strong')[0].style.color = '#222';
+            }
+            selectedFlexItem = flexItem;
+          }
+        });
+
+        return flexItem;
+      }
+
+      async function getSupportedVisPlans() {
+        const container = document.getElementById('installment-option');
+        const { response: { matchedPlans } } = await window.NI.handleGetVISPlans({
+          apiKey, outletRef, sessionId, realmName, id: 'vis-plan',
+          body: { action: order.action, amount: { currencyCode: merchantCurrency, value: orderAmount } }
+        });
+        document.querySelector('[data-show="LOADING"]').style.display = 'none';
+        if (!matchedPlans.length) return;
+        container.style.display = 'inline';
+        const flexContainer = document.createElement('div');
+        flexContainer.classList.add('flex-container');
+        disableMakePaymentButton();
+        matchedPlans.unshift({ numberOfInstallments: 'FULL' });
+        matchedPlans.forEach((v, i) => flexContainer.appendChild(buildVisFlexItem(v, i)));
+        container.appendChild(flexContainer);
+      }
+
+
+      // ═══════════════════════ MCP – FOREX CONVERSION ═══════════════════════
+
+      async function getConvertedAmountForCurrency() {
+        document.getElementById('currency-conversion-value').style.display = 'none';
+        const selectedCurrencyCode = document.getElementById('currency-list').value;
+
+        if (selectedCurrencyCode === 'AED') getSupportedVisPlans();
+        else document.getElementById('installment-option').innerHTML = '';
+
+        if (merchantCurrency === selectedCurrencyCode) return null;
+
+        try {
+          const { response: converted, error } = await window.NI.handleForexCurrencyConversion(
+            'currency-conversion',
+            { style, apiKey, realmName, outletRef,
+              orderAmount: { value: orderAmount, currencyCode: merchantCurrency },
+              targetCurrencyCode: selectedCurrencyCode,
+              isUsingFake: isUsingFake && isUsingFake.value }
+          );
+          const valEl   = document.getElementById('converted-amount-value');
+          const blockEl = document.getElementById('currency-conversion-value');
+          if (error) { console.error('Forex error:', error); return null; }
+          if (converted === 'FAILED') {
+            blockEl.style.display = 'flex';
+            valEl.innerHTML = `<span style="display:block;text-align:end;">${converted}</span><span style="display:block;text-align:end;width:120px;margin-top:10px;">Please select a different currency.</span>`;
+            return null;
+          }
+          if (converted && !converted.includes(selectedCurrencyCode)) {
+            blockEl.style.display = 'flex';
+            valEl.innerHTML = `<span style="display:block;text-align:end;">${converted}</span><span style="display:block;text-align:end;width:120px;margin-top:10px;">Couldn't convert. Please select a different currency.</span>`;
+            return null;
+          }
+          blockEl.style.display = 'flex';
+          valEl.innerHTML = converted;
+          return converted;
+        } catch (e) { console.error('Forex error:', e); return null; }
+      }
+
+
+      // ═══════════════════════ MCP – CURRENCY LIST ══════════════════════════
+
+      async function getSupportedCurrencies() {
+        const currencyInput = document.getElementById('currency-list');
+        let defaultCurrency = merchantCurrency;
+        let isCurrencyListNull = true;
+
+        function appendOption(c) {
+          const opt = document.createElement('option');
+          opt.value = c.currencyCode; opt.text = c.currencyCode; return opt;
+        }
+
+        try {
+          const { response: res, error } = await window.NI.handleGetSupportedCurrencies(
+            'currency-input',
+            { style, apiKey, outletRef, merchantCurrency, realmName, isUsingFake: isUsingFake && isUsingFake.value }
+          );
+          if (res.currencyList && res.currencyList.length) {
+            res.currencyList.forEach(c => currencyInput.append(appendOption(c)));
+            defaultCurrency = res.currencyList[0].currencyCode;
+            isCurrencyListNull = false;
+          } else if (order.amount.currencyCode === 'AED' && order.action === 'PURCHASE') {
+            await getSupportedVisPlans();
+          }
+          if (!res.currencyList || res.currencyList.length === 0 || error) {
+            currencyInput.append(appendOption({ currencyCode: merchantCurrency }));
+            if (error) console.error('Currency list error:', error);
+          }
+        } catch (e) {
+          console.error('Currency list error:', e);
+          currencyInput.append({ currencyCode: merchantCurrency });
+        }
+
+        document.getElementById('currency-list').value = defaultCurrency;
+        if (!isCurrencyListNull) await getConvertedAmountForCurrency();
+        return {};
+      }
+
+
+      // ═══════════════════════ SESSION & PAYMENT ════════════════════════════
+
+      async function createSession() {
+        try {
+          const response = await window.NI.generateSessionId({
+            mountId: '3ds_iframe', containerId: 'iframe-modal'
+          });
+          console.log(response);
+          sessionId = response.session_id;
+          threeDSModal.classList.remove('open');
+        } catch (err) {
+          threeDSModal.classList.remove('open');
+          const allowed = ['One or more fields contain invalid values', 'Samsung Pay token request canceled'];
+          if (!allowed.includes(err.message)) send('TOKENIZE_CARD_ERROR');
+          console.error(err.message);
+        }
+      }
+
+      async function createPayment() {
+        try {
+          await createSession();
+          if (!sessionId) return;
+
+          let payload = { ...order };
+          if (isMCPEnabled) {
+            payload = { ...payload, payment: { currency: document.getElementById('currency-list').value } };
+          }
+          if (enableDcc && enableDcc.value) {
+            payload = { ...payload, payment: { isDccSelected } };
+          }
+          const vis = getSelectedVisPlan();
+          if (vis) {
+            const engTnC = vis.termsAndConditions
+              ? vis.termsAndConditions.filter(t => t.languageCode === 'eng') : [];
+            payload = {
+              ...payload,
+              payment: {
+                ...payload.payment,
+                vis: {
+                  planSelectionIndicator: vis.numberOfInstallments !== 'FULL',
+                  vPlanId: vis.vPlanID || null,
+                  acceptedTAndCVersion: vis.numberOfInstallments === 'FULL' ? null : (engTnC[0] ? engTnC[0].version : null)
+                }
+              }
+            };
+          }
+
+          const paymentResponse = await makePaymentApi(outletRef, sessionId, payload, realmName);
+          threeDSModal.classList.add('open');
+
+          const { status, error } = await window.NI.handlePaymentResponse(paymentResponse, {
+            mountId: '3ds_iframe', style: { width: 500, height: 500 }
+          });
+          threeDSModal.classList.remove('open');
+
+          const s = window.NI.paymentStates;
+          if ([s.THREE_DS_SUCCESS, s.AUTHORISED, s.CAPTURED, s.PURCHASED, s.PARTIALLY_AUTHORISED].includes(status)) {
+            send('PAYMENT');
+          } else if ([s.FAILED, s.THREE_DS_FAILURE].includes(status)) {
+            send('TOKENIZE_CARD_ERROR');
+          } else if (status === s.PARTIAL_AUTH_DECLINED) {
+            send('PARTIAL_AUTH_DECLINED');
+          } else if (error) {
+            send('TOKENIZE_CARD_ERROR');
+          }
+        } catch (e) {
+          console.error('Payment error:', e.message);
+          send('TOKENIZE_CARD_ERROR');
+        }
+      }
+
+
+      // ═══════════════════════ SDK MOUNT ════════════════════════════════════
+
+      function mountCardInput() {
+        window?.NI?.mountCardInput('mount-point', {
+          style, apiKey, realmName, outletRef,
+          language: order.language,
+          firstName: order.billingAddress.firstName,
+          lastName:  order.billingAddress.lastName,
+          hideLoadingBehavior,
+          dccEnabled: enableDcc && enableDcc.value,
+          onTriggerDCC: async dccData => {
+            threeDSModal.classList.add('open');
+            const dccFlow = await window.NI.handleDCCFlow({ config: { mountId: '3ds_iframe' }, dccData });
+            threeDSModal.classList.remove('open');
+            isDccSelected = dccFlow?.isDccSelected || false;
+          },
+          orderDetails,
+          multiplePaymentMethods: isMultiplePaymentMethods && isMultiplePaymentMethods.value,
+          onChangeValidStatus: ({ isCVVValid, isExpiryValid, isNameValid, isPanValid, isAaniDataValid }) => {
+            if ((isCVVValid && isExpiryValid && isNameValid && isPanValid) || isAaniDataValid) enableMakePaymentButton();
+            else if (!document.getElementById('payment-btn').hasAttribute('disabled')) disableMakePaymentButton();
+          },
+          onChangePaymentMethod: ({ selectedPaymentType, selectedDigitalPayment }) => {
+            if (selectedPaymentType === 'DIGITAL_PAYMENTS' && selectedDigitalPayment) enableMakePaymentButton();
+          },
+          onSuccess: async () => {
+            send('AUTH_SUCCESS');
+            mcpResponse = await getSupportedCurrencies();
+            if (isMCPEnabled) document.querySelector('[data-show="SHOW_PAYMENT_OPTION"]').style.display = 'block';
+          },
+          onFail: () => send('AUTH_ERROR')
+        });
+      }
+
+
+      // ═══════════════════════ MUTATION OBSERVER ════════════════════════════
+
+      function observePaymentPanel() {
+        const observer = new MutationObserver(mutations => {
+          mutations.forEach(async () => {
+            const el = document.querySelector('[data-show="MAKE_PAYMENT"]');
+            if (!el || el.style.display !== 'block') return;
+            const isAED = order.amount.currencyCode === 'AED';
+            const isPurchase = order.action === 'PURCHASE';
+            const isGeoAED   = mcpResponse && mcpResponse.geoCurrency === 'AED';
+            if (isMCPEnabled && isAED && isGeoAED && isPurchase) await getSupportedVisPlans();
+            else if (!isMCPEnabled && isAED && isPurchase) await getSupportedVisPlans();
+          });
+        });
+        observer.observe(
+          document.querySelector('[data-show="MAKE_PAYMENT"]'),
+          { attributes: true, attributeFilter: ['style'] }
+        );
+      }
+
+
+      // ═══════════════════════ UI INITIALISERS ══════════════════════════════
+
+      function initLanguageSelector() {
+        const menu    = document.getElementById('langMenu');
+        const btn     = document.getElementById('selectedLanguageBtn');
+        const langSpan = document.getElementById('selectedLanguage');
+
+        btn.addEventListener('click', () => menu.classList.toggle('active'));
+
+        menu.querySelectorAll('.option').forEach(opt => {
+          opt.addEventListener('click', () => {
+            const text = opt.querySelector('.option-text').innerText;
+            langSpan.innerText = text;
+            menu.classList.remove('active');
+            const code = text === 'English' ? 'en' : 'ar';
+            order.language = code;
+            localStorage.setItem('selectedLanguage', code);
+            window.location.reload();
+          });
+        });
+
+        langSpan.innerText = defaultLanguage === 'en' ? 'English' : 'Arabic';
+      }
+
+      function initRealmNameSelector() {
+        document.querySelectorAll('input[name="realmName"]').forEach(opt => {
+          if (opt.value === realmName) opt.checked = true;
+          opt.addEventListener('click', () => {
+            realmName = opt.value;
+            localStorage.setItem('realmName', JSON.stringify(realmName));
+            location.reload();
+          });
+        });
+      }
+
+      function initNameOptions() {
+        const billing = { firstName: '', lastName: '' };
+        // Restore checked state
+        const saved = JSON.parse(localStorage.getItem('billingAddress'));
+        let nameOpt = '4';
+        if (saved) {
+          if (saved.firstName && saved.lastName) nameOpt = '1';
+          else if (saved.firstName) nameOpt = '2';
+          else if (saved.lastName)  nameOpt = '3';
+        }
+        const radio = document.querySelector(`input[name="nameOption"][value="${nameOpt}"]`);
+        if (radio) radio.checked = true;
+
+        document.querySelectorAll('input[name="nameOption"]').forEach(opt => {
+          opt.addEventListener('click', () => {
+            const v = opt.value;
+            if      (v === '1') { billing.firstName = 'Bob'; billing.lastName = 'Doe'; }
+            else if (v === '2') { billing.firstName = 'Bob'; billing.lastName = ''; }
+            else if (v === '3') { billing.firstName = '';    billing.lastName = 'Doe'; }
+            else                { billing.firstName = '';    billing.lastName = ''; }
+            localStorage.setItem('billingAddress', JSON.stringify(billing));
+            location.reload();
+          });
+        });
+      }
+
+      function initOrderType() {
+        const el = document.getElementById('orderType');
+        el.value = selectedOrderTypeFromLocalStorage();
+        el.addEventListener('change', () => { localStorage.setItem('orderType', el.value); location.reload(); });
+      }
+
+      function initOrderAmount() {
+        const el = document.getElementById('orderAmount');
+        el.value = orderAmount;
+        el.addEventListener('focusout', () => localStorage.setItem('amount', el.value));
+      }
+
+      function initCurrencyInput() {
+        const el = document.getElementById('currency');
+        el.value = selectedCurrencyFromLocalStorage();
+        el.addEventListener('focusout', () => localStorage.setItem('currency', el.value));
+      }
+
+      function initRealmNameInput() {
+        const el = document.getElementById('realmName');
+        el.value = realmName;
+        el.addEventListener('focusout', () => localStorage.setItem('realmName', JSON.stringify(el.value)));
+      }
+      function initEmailInput() {
+        const el = document.getElementById('emailAddress');
+        el.value = emailAddress || '';
+        el.addEventListener('focusout', () => localStorage.setItem('emailAddress', el.value));
+      }
+
+      function initPhoneInput() {
+        const el = document.getElementById('phoneNumber');
+        el.value = phoneNumber || '';
+        el.addEventListener('focusout', () => localStorage.setItem('phoneNumber', el.value));
+      }
+
+      function initCheckboxes() {
+        const configs = [
+          { id: 'isUsingFake',         save: el => localStorage.setItem('isUsingFake',         JSON.stringify({ value: !el.checked })),  restore: v => v && !v.value },
+          { id: 'showInputLabel',      save: el => localStorage.setItem('showInputLabel',      JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
+          { id: 'hideLoadingBehavior', save: el => localStorage.setItem('hideLoadingBehavior', JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
+          { id: 'showDigitalPayments', save: el => localStorage.setItem('showDigitalPayments', JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
+          { id: 'enableDcc',           save: el => localStorage.setItem('enableDcc',           JSON.stringify({ value: el.checked })),   restore: v => v && v.value }
+        ];
+        configs.forEach(({ id, save, restore }) => {
+          const el  = document.getElementById(id);
+          const raw = JSON.parse(localStorage.getItem(id));
+          el.checked = !!restore(raw);
+          el.addEventListener('change', () => { save(el); location.reload(); });
+        });
+      }
+
+      function initCurrencyListDropdown() {
+        console.log('called');
+        
+        document.getElementById('currency-list').addEventListener('change', getConvertedAmountForCurrency);
+      }
+
+      function initCurrencyBlockVisibility() {
+        window.addEventListener('load', () => {
+          document.getElementById('currency-conversion-block').style.display = isMCPEnabled ? 'flex' : 'none';
+        });
+      }
+
+
+      // ═══════════════════════ BOOT ═════════════════════════════════════════
+
+      function boot() {
+        send('LOAD_PAYPAGE');
+        document.querySelector('[data-show="MAKE_PAYMENT"]').style.display = 'block';
+
+        mountCardInput();
+
+        initLanguageSelector();
+        initRealmNameSelector();
+        initRealmNameInput()
+        initNameOptions();
+        initOrderType();
+        initOrderAmount();
+        initCurrencyInput();
+        initEmailInput();
+        initPhoneInput();
+        initCheckboxes();
+        initCurrencyListDropdown();
+        initCurrencyBlockVisibility();
+
+        observePaymentPanel();
+
+        document.getElementById('payment-btn').addEventListener('click', createPayment);
+      }
+
+      boot();
+
+    } // end initPaymentPage
+
+  </script>
+</body>
+</html>
