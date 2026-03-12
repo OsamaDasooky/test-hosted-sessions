@@ -50,6 +50,7 @@
       transition: color .2s;
     }
     .tap-item:hover { color: #253cfc; }
+    .navbar a.tap-item { text-decoration: none; }
     @media screen and (max-width: 850px) { .tap-item { display: none; } }
 
     /* ── Language selector ── */
@@ -245,10 +246,7 @@
   <!-- ── Navigation ── -->
   <nav class="navbar">
     <h2>Acme Design</h2>
-    <span class="tap-item">Contact</span>
-    <span class="tap-item">About Us</span>
-    <span class="tap-item">Shop</span>
-    <span class="tap-item lPad20">User Account</span>
+    <a href="setup.html" class="tap-item">Settings</a>
     <div class="select-menu" id="langMenu">
       <div class="select-btn" id="selectedLanguageBtn">
         <span id="selectedLanguage">English</span>
@@ -418,28 +416,63 @@
   ══════════════════════════════════════════════════════ -->
   <script type="module">
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // 1. SDK BOOTSTRAP
-    // ─────────────────────────────────────────────────────────────────────────
-    function loadSDK() {
-      const script = document.createElement('script');
-      script.setAttribute('id', 'hosted-sessions-sdk');
-      script.setAttribute('src', 'https://paypage.sandbox.ngenius-payments.com/hosted-sessions/sdk.js');
-      script.addEventListener('load', initPaymentPage);
-      document.head.appendChild(script);
+    const CONFIG_KEY = 'hostedSessionConfig';
+
+    function getStoredConfig() {
+      try {
+        const raw = localStorage.getItem(CONFIG_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (_) {
+        return null;
+      }
     }
 
-    loadSDK();
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1. CONFIG CHECK & SDK BOOTSTRAP
+    // ─────────────────────────────────────────────────────────────────────────
+    (async function bootstrap() {
+      const config = getStoredConfig();
+      if (!config || !config.merchantApiKey || !config.hostedSessionApiKey || !config.outletRef || !config.env) {
+        window.location.href = 'setup.html';
+        return;
+      }
+
+      let sdkUrl = 'http://localhost:4000';
+      try {
+        const res = await fetch('/api/env-config');
+        if (res.ok) {
+          const envConfig = await res.json();
+          if (envConfig[config.env] && envConfig[config.env].sdkUrl) {
+            sdkUrl = envConfig[config.env].sdkUrl;
+          }
+        }
+      } catch (_) {}
+      const scriptSrc = sdkUrl.replace(/\/$/, '') + '/hosted-sessions/sdk.js';
+
+      function loadSDK() {
+        const script = document.createElement('script');
+        script.setAttribute('id', 'hosted-sessions-sdk');
+        script.setAttribute('src', scriptSrc);
+        script.addEventListener('load', initPaymentPage);
+        document.head.appendChild(script);
+      }
+      loadSDK();
+    })();
 
 
     // ─────────────────────────────────────────────────────────────────────────
     // 2. MAIN INIT  – runs after SDK has loaded
     // ─────────────────────────────────────────────────────────────────────────
     function initPaymentPage() {
+      const config = getStoredConfig();
+      if (!config || !config.outletRef || !config.hostedSessionApiKey) {
+        window.location.href = 'setup.html';
+        return;
+      }
 
       // ── Config & persisted state ──────────────────────────────────────────
-      const outletRef = 'db1bcaaa-3ae6-47ec-a11a-91f3a5836cf7';
-      const apiKey    = 'YWE1MTQzNzMtNmMwMS00ZGUyLWJmYWUtY2ZlZmJiYmMzYmQ1OjcxMTRhYjhlLWU1ODAtNGI3Zi05YzBmLTk3YWM3NzEwYmE2ZQ==';
+      const outletRef = config.outletRef;
+      const apiKey    = config.hostedSessionApiKey;
       let   realmName = JSON.parse(localStorage.getItem('realmName')) || '';
 
       const selectedLanguageFromLocalStorage = localStorage.getItem('selectedLanguage');
@@ -584,8 +617,15 @@
       }
 
       function makePaymentApi(outletRef, sessionId, order, realmName) {
-        const qs  = realmName ? `?realmName=${realmName}` : '';
-        return apiClient(`/api/hosted-sessions/payment${qs}`, 'POST', {order, sessionId, outletRef});
+        const qs = realmName ? `?realmName=${realmName}` : '';
+        const body = {
+          order,
+          sessionId,
+          outletRef,
+          merchantApiKey: config.merchantApiKey,
+          env: config.env
+        };
+        return apiClient(`/api/hosted-sessions/payment${qs}`, 'POST', body);
       }
 
 

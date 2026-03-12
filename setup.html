@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Setup – Hosted Sessions</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <link href="https://fonts.googleapis.com/css?family=Lato:400,700&display=swap" rel="stylesheet" />
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Lato', sans-serif;
+      background: #f0f4f8;
+      color: #222;
+    }
+    .navbar {
+      display: flex;
+      align-items: center;
+      background: #fff;
+      padding: 14px 32px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+    .navbar h2 { font-size: 1.4rem; color: #1a1a2e; }
+    .container {
+      max-width: 560px;
+      margin: 32px auto;
+      padding: 0 32px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px 28px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 16px; color: #1a1a2e; }
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .field-group:last-of-type { margin-bottom: 0; }
+    .field-group label {
+      font-size: .85rem;
+      color: #555;
+      font-weight: 600;
+    }
+    .field-group input,
+    .field-group select {
+      padding: 9px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: .92rem;
+      background: #fff;
+      transition: border-color .2s;
+      font-family: inherit;
+    }
+    .field-group input:focus,
+    .field-group select:focus {
+      outline: none;
+      border-color: #253cfc;
+    }
+    .submit-btn {
+      height: 46px;
+      width: 100%;
+      border-radius: 8px;
+      background: #253cfc;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: background .2s;
+      font-family: inherit;
+    }
+    .submit-btn:hover { background: #1a2fd4; }
+    .error-msg {
+      color: #c0392b;
+      font-size: .9rem;
+      margin-top: 12px;
+      display: none;
+    }
+    .error-msg.visible { display: block; }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <h2>Hosted Sessions – Setup</h2>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h2>Configure API keys and environment</h2>
+      <form id="setup-form">
+        <div class="field-group">
+          <label for="merchantApiKey">Merchant API Key</label>
+          <input type="text" id="merchantApiKey" name="merchantApiKey" placeholder="Base64-encoded apiKey:apiSecret" autocomplete="off" />
+        </div>
+        <div class="field-group">
+          <label for="hostedSessionApiKey">Hosted Session API Key</label>
+          <input type="text" id="hostedSessionApiKey" name="hostedSessionApiKey" placeholder="Public / hosted session API key" autocomplete="off" />
+        </div>
+        <div class="field-group">
+          <label for="outletRef">Outlet Ref</label>
+          <input type="text" id="outletRef" name="outletRef" placeholder="e.g. db1bcaaa-3ae6-47ec-a11a-91f3a5836cf7" autocomplete="off" />
+        </div>
+        <div class="field-group">
+          <label for="env">Environment</label>
+          <select id="env" name="env">
+            <option value="sandbox">Sandbox</option>
+            <option value="dev">Dev</option>
+          </select>
+        </div>
+        <p class="error-msg" id="error-msg">Please fill in all fields.</p>
+        <button type="submit" class="submit-btn">Save and go to Checkout</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    const CONFIG_KEY = 'hostedSessionConfig';
+
+    function getStoredConfig() {
+      try {
+        const raw = localStorage.getItem(CONFIG_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    // Pre-fill from previous config if any
+    const stored = getStoredConfig();
+    if (stored) {
+      document.getElementById('merchantApiKey').value = stored.merchantApiKey || '';
+      document.getElementById('hostedSessionApiKey').value = stored.hostedSessionApiKey || '';
+      document.getElementById('outletRef').value = stored.outletRef || '';
+      document.getElementById('env').value = (stored.env === 'dev' || stored.env === 'sandbox') ? stored.env : 'sandbox';
+    }
+
+    document.getElementById('setup-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const merchantApiKey = document.getElementById('merchantApiKey').value.trim();
+      const hostedSessionApiKey = document.getElementById('hostedSessionApiKey').value.trim();
+      const outletRef = document.getElementById('outletRef').value.trim();
+      const env = document.getElementById('env').value;
+
+      const errEl = document.getElementById('error-msg');
+      if (!merchantApiKey || !hostedSessionApiKey || !outletRef) {
+        errEl.textContent = 'Please fill in Merchant API Key, Hosted Session API Key, and Outlet Ref.';
+        errEl.classList.add('visible');
+        return;
+      }
+      if (env !== 'sandbox' && env !== 'dev') {
+        errEl.textContent = 'Please select Environment (Sandbox or Dev).';
+        errEl.classList.add('visible');
+        return;
+      }
+
+      errEl.classList.remove('visible');
+      const config = {
+        merchantApiKey,
+        hostedSessionApiKey,
+        outletRef,
+        env
+      };
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      window.location.href = 'index.html';
+    });
+  </script>
+</body>
+</html>

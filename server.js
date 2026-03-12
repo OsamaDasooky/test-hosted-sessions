@@ -14,6 +14,9 @@ const bodyParser = require('body-parser');
 
 const app = express();
 
+const IDENTITY_API_URL = 'https://api-gateway.sandbox.ngenius-payments.com/identity/auth/access-token'
+const TRANSACTIONS_SERVICE_URL = 'https://api-gateway-uat.ngenius-payments.com/transactions/'
+const PORT = 3000
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
@@ -21,28 +24,35 @@ app.use(bodyParser.json());
 // Serve index.html (and any other static files in this folder)
 app.use(express.static(__dirname));
 
-// ── Config from .env ──────────────────────────────────────────────────────────
-const {
-  MERCHANT_API_KEY,
-  IDENTITY_API_URL,
-  TRANSACTIONS_SERVICE_URL,
-  PORT = 3000
-} = process.env;
 
-if (!MERCHANT_API_KEY || !IDENTITY_API_URL) {
-  console.error('❌  Missing env vars. Copy .env.example → .env and fill in the values.');
-  process.exit(1);
-}
+
+
+// ── Env → URL mapping (used when request includes env from setup page) ────────
+const ENV_URLS = {
+  sandbox: {
+    identityUrl: 'https://api-gateway.sandbox.ngenius-payments.com/identity/auth/access-token',
+    transactionsUrl: 'https://api-gateway.sandbox.ngenius-payments.com/transactions/',
+    sdkUrl: 'https://paypage.sandbox.ngenius-payments.com'
+  },
+  dev: {
+    identityUrl: 'https://api-gateway-dev.ngenius-payments.com/identity/auth/access-token',
+    transactionsUrl: 'https://api-gateway-dev.ngenius-payments.com/transactions/',
+    sdkUrl: 'https://paypage-dev.ngenius-payments.com'
+  }
+};
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
-async function getAuthToken(realmName) {
+async function getAuthToken(realmName, identityUrl, merchantApiKey) {
+  const url = identityUrl;
+  const key = merchantApiKey;
+  if (!url || !key) return null;
   try {
     const { data: { access_token } } = await axios({
       method : 'post',
-      url: IDENTITY_API_URL,
+      url,
       headers: {
         'Content-Type' : 'application/vnd.ni-identity.v1+json',
-        Authorization  : `Basic ${MERCHANT_API_KEY}`
+        Authorization  : `Basic ${key}`
       },
       data: { grant_type: 'client_credentials', "realmName": realmName }
     });
@@ -54,27 +64,45 @@ async function getAuthToken(realmName) {
   }
 }
 
+// ── Env config endpoint (no secrets) ─────────────────────────────────────────
+app.get('/api/env-config', (req, res) => {
+  res.json(ENV_URLS);
+});
+
 // ── Payment endpoint ──────────────────────────────────────────────────────────
 /**
  * POST /api/hosted-sessions/payment
- * Body: { sessionId, outletRef, order }
+ * Body: { sessionId, outletRef, order [, merchantApiKey, env ] }
+ * When merchantApiKey and env are present, use ENV_URLS[env] and skip .env.
  */
 app.post('/api/hosted-sessions/payment', async (req, res) => {
-  const { sessionId, order, outletRef } = req.body;
-  const { realmName } = req.query;           // ← received from the HTML page
+  const { sessionId, order, outletRef, merchantApiKey, env } = req.body;
+  const { realmName } = req.query;
 
   if (!sessionId || !outletRef || !order) {
     return res.status(400).json({ error: 'sessionId, outletRef and order are required.' });
   }
 
-  const accessToken = await getAuthToken(realmName);
+  let identityUrl = IDENTITY_API_URL;
+  let transactionsUrl = TRANSACTIONS_SERVICE_URL;
+  let authMerchantKey = merchantApiKey;
+
+  if (merchantApiKey && env && ENV_URLS[env]) {
+    identityUrl = ENV_URLS[env].identityUrl;
+    transactionsUrl = ENV_URLS[env].transactionsUrl;
+
+  } else if (!authMerchantKey || !identityUrl) {
+    return res.status(400).json({ error: 'Provide merchantApiKey and env (from setup), or set .env.' });
+  }
+
+  const accessToken = await getAuthToken(realmName, identityUrl, authMerchantKey);
   if (!accessToken) {
     return res.status(500).json({ error: 'Authentication failed – could not obtain access token.' });
   }
 
   try {
     const { data } = await axios.post(
-      `${TRANSACTIONS_SERVICE_URL}outlets/${outletRef}/payment/hosted-session/${sessionId}`,
+      `${transactionsUrl}outlets/${outletRef}/payment/hosted-session/${sessionId}`,
       order,
       {
         headers: {
