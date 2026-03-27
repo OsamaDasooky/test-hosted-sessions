@@ -261,6 +261,10 @@
           <img src="data:image/svg+xml,%3C?xml version='1.0' encoding='iso-8859-1'%3F%3E%3Csvg version='1.1' id='Layer_1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' viewBox='0 0 512.001 512.001' xml:space='preserve'%3E%3Cpath style='fill:%2373AF00;' d='M473.655,88.276H158.897v111.816H512v-73.471C512,105.443,494.833,88.276,473.655,88.276z'/%3E%3Cpath style='fill:%23464655;' d='M158.897,423.724h314.759c21.177,0,38.345-17.167,38.345-38.345v-73.471H158.897V423.724z'/%3E%3Crect x='158.9' y='200.09' style='fill:%23F5F5F5;' width='353.1' height='111.81'/%3E%3Cpath style='fill:%23FF4B55;' d='M38.345,88.276C17.167,88.276,0,105.443,0,126.621V385.38c0,21.177,17.167,38.345,38.345,38.345h120.552V88.276H38.345z'/%3E%3C/svg%3E" alt="AR" />
           <span class="option-text">Arabic</span>
         </li>
+        <li class="option">
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 3 2'%3E%3Cpath fill='%23002395' d='M0 0h1v2H0z'/%3E%3Cpath fill='%23fff' d='M1 0h1v2H1z'/%3E%3Cpath fill='%23ED2939' d='M2 0h1v2H2z'/%3E%3C/svg%3E" alt="FR" />
+          <span class="option-text">French</span>
+        </li>
       </ul>
     </div>
   </nav>
@@ -437,13 +441,13 @@
         return;
       }
 
-      let sdkUrl = 'http://localhost:4000';
+      let sdkUrl = 'http://localhost:8080';
       try {
         const res = await fetch('/api/env-config');
         if (res.ok) {
           const envConfig = await res.json();
           if (envConfig[config.env] && envConfig[config.env].sdkUrl) {
-            sdkUrl = envConfig[config.env].sdkUrl;
+            // sdkUrl = envConfig[config.env].sdkUrl;
           }
         }
       } catch (_) {}
@@ -992,14 +996,16 @@
             const text = opt.querySelector('.option-text').innerText;
             langSpan.innerText = text;
             menu.classList.remove('active');
-            const code = text === 'English' ? 'en' : 'ar';
+            const labelToCode = { English: 'en', Arabic: 'ar', French: 'fr' };
+            const code = labelToCode[text] || 'en';
             order.language = code;
             localStorage.setItem('selectedLanguage', code);
             window.location.reload();
           });
         });
 
-        langSpan.innerText = defaultLanguage === 'en' ? 'English' : 'Arabic';
+        const codeToLabel = { en: 'English', ar: 'Arabic', fr: 'French' };
+        langSpan.innerText = codeToLabel[defaultLanguage] || 'English';
       }
 
       function initRealmNameSelector() {

@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <title>CTP SDK – Theme & Config Demo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f5;
+      color: #1a1a1a;
+      line-height: 1.5;
+    }
+    .navbar {
+      background: #fff;
+      padding: 14px 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    .navbar h1 { font-size: 1.25rem; font-weight: 700; color: #1a1a1a; }
+    .container { max-width: 900px; margin: 24px auto; padding: 0 24px; }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eee;
+    }
+    .card h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #4a4a4a;
+      margin: 16px 0 8px;
+    }
+    .card h3:first-of-type { margin-top: 0; }
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    /* .field-group:last-child { margin-bottom: 0; } */
+    .field-group label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #4a4a4a;
+    }
+    .field-group input,
+    .field-group select {
+      padding: 8px 12px;
+      border: 1px solid #d4d4d4;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-family: inherit;
+    }
+    .field-group input:focus,
+    .field-group select:focus {
+      outline: none;
+      border-color: #005996;
+    }
+    .field-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .field-row .field-group { flex: 1; min-width: 140px; }
+    .color-input-wrap { display: flex; gap: 8px; align-items: center; }
+    .color-input-wrap input[type="text"] { flex: 1; }
+    .color-input-wrap input[type="color"] { width: 40px; height: 36px; padding: 2px; cursor: pointer; border-radius: 6px; border: 1px solid #d4d4d4; }
+    .btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      transition: background .2s, opacity .2s;
+    }
+    .btn-primary {
+      background: #F5C842;
+      color: #1a1a1a;
+    }
+    .btn-primary:hover { background: #e6b93a; }
+    .btn-secondary {
+      background: #fff;
+      color: #1a1a1a;
+      border: 1px solid #d4d4d4;
+    }
+    .btn-secondary:hover { background: #f7f7f7; }
+    .btn-block { width: 100%; margin-top: 8px; }
+    .step-panel { display: none; }
+    .step-panel.active { display: block; }
+    #step-2 .card:last-of-type { margin-bottom: 0; }
+    #ctp-container { min-height: 120px; padding: 16px 0; }
+    #ctp-response {
+      margin-top: 20px;
+      border-radius: 10px;
+      border: 1px solid #e5e5e5;
+      background: linear-gradient(180deg, #fcfcfc 0%, #f6f6f6 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      min-height: 56px;
+      padding: 14px 16px;
+      font-size: 0.8125rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #ctp-response:empty::before {
+      content: 'Checkout events (complete, fail, or close) will appear here.';
+      color: #6f6f6f;
+      font-style: italic;
+      line-height: 1.45;
+    }
+    #ctp-response.ctp-response--success {
+      border-color: #b8dcc4;
+      background: linear-gradient(180deg, #f4fbf6 0%, #ecf8f0 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(39, 174, 96, 0.08);
+    }
+    #ctp-response.ctp-response--error {
+      border-color: #e8b4b0;
+      background: linear-gradient(180deg, #fdf6f5 0%, #f9edec 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(192, 57, 43, 0.06);
+    }
+    #ctp-response.ctp-response--info {
+      border-color: #c5d9e8;
+      background: linear-gradient(180deg, #f5f9fc 0%, #eef4f9 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(0, 89, 150, 0.06);
+    }
+    .ctp-response-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    .ctp-response-head {
+      font-weight: 700;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #4a4a4a;
+      margin: 0;
+      flex: 1;
+      min-width: 0;
+    }
+    .btn-copy {
+      flex-shrink: 0;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      border: 1px solid #d4d4d4;
+      background: #fff;
+      color: #1a1a1a;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-copy:hover {
+      background: #f7f7f7;
+      border-color: #c4c4c4;
+    }
+    .btn-copy:focus {
+      outline: none;
+      border-color: #005996;
+      box-shadow: 0 0 0 2px rgba(0, 89, 150, 0.2);
+    }
+    .btn-copy.copied {
+      border-color: #b8dcc4;
+      background: #ecf8f0;
+      color: #1e6b45;
+    }
+    #ctp-response.ctp-response--success .ctp-response-head { color: #1e6b45; }
+    #ctp-response.ctp-response--error .ctp-response-head { color: #922b21; }
+    #ctp-response.ctp-response--info .ctp-response-head { color: #005996; }
+    .ctp-response-body {
+      margin: 0;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.75);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      color: #1a1a1a;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .radii-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+    .error-msg { color: #c0392b; font-size: 0.875rem; margin-top: 8px; display: none; }
+    .error-msg.visible { display: block; }
+    .hint { font-size: 0.75rem; color: #6f6f6f; margin-top: 2px; }
+    .section-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      color: #005996;
+      padding: 4px 0;
+      margin-bottom: 12px;
+    }
+    .section-toggle:hover { text-decoration: underline; }
+    .section-collapsible { margin-top: 8px; }
+    .section-collapsible.collapsed .section-body { display: none; }
+    .section-collapsible.collapsed .section-toggle .arrow { transform: rotate(-90deg); }
+    .arrow { display: inline-block; transition: transform .2s; margin-right: 4px; }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <h1>CTP SDK – Theme & Config Demo</h1>
+  </nav>
+
+  <div class="container">
+    <!-- Step 1: Configuration -->
+    <div id="step-1" class="step-panel active">
+      <div class="card">
+        <h2>Step 1: API & Options</h2>
+        <div class="field-group">
+          <label for="sdkBaseUrl">SDK Base URL</label>
+          <input type="text" id="sdkBaseUrl" placeholder="e.g. http://localhost:4000" value="http://localhost:4000" />
+          <span class="hint">Script will load from: &lt;base&gt;/click-to-pay/sdk.js</span>
+        </div>
+        <div class="field-group">
+          <label for="apiKey">API Key *</label>
+          <input type="text" id="apiKey" placeholder="Your API key" />
+        </div>
+        <div class="field-group">
+          <label for="outletRef">Outlet Ref *</label>
+          <input type="text" id="outletRef" placeholder="e.g. db1bcaaa-3ae6-47ec-a11a-91f3a5836cf7" />
+        </div>
+        <div class="field-group">
+          <label for="realmName">Realm Name</label>
+          <input type="text" id="realmName" placeholder="e.g. SteveAcquirer" value="SteveAcquirer" />
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label for="language">Language</label>
+            <select id="language">
+              <option value="en">English</option>
+              <option value="ar">Arabic</option>
+              <option value="fr">French</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="email">Email (pre-fill)</label>
+            <input type="text" id="email" placeholder="customer@example.com" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field-group">
+            <label for="phoneCountryCode">Phone – country code</label>
+            <input type="text" id="phoneCountryCode" placeholder="971" value="971" />
+            <span class="hint">Calling code (e.g. 971)</span>
+          </div>
+          <div class="field-group">
+            <label for="phoneSubscriber">Phone – number</label>
+            <input type="text" id="phoneSubscriber" placeholder="501234567" />
+            <span class="hint">Mobile number without country code</span>
+          </div>
+        </div>
+        <div class="field-group">
+          <label for="termsUrl">Terms URL</label>
+          <input type="text" id="termsUrl" placeholder="https://example.com/terms" />
+        </div>
+        <h3>Billing address (pre-fill)</h3>
+        <div class="field-row">
+          <div class="field-group">
+            <label for="firstName">First name</label>
+            <input type="text" id="firstName" placeholder="Jane" />
+          </div>
+          <div class="field-group">
+            <label for="lastName">Last name</label>
+            <input type="text" id="lastName" placeholder="Doe" />
+          </div>
+        </div>
+        <h3>Order details</h3>
+        <div class="field-row">
+          <div class="field-group">
+            <label for="orderValue">Amount (minor units)</label>
+            <input type="number" id="orderValue" placeholder="1000" value="1000" />
+          </div>
+          <div class="field-group">
+            <label for="currencyCode">Currency</label>
+            <input type="text" id="currencyCode" placeholder="AED" value="AED" />
+          </div>
+          <div class="field-group">
+            <label for="formattedValue">Formatted value</label>
+            <input type="text" id="formattedValue" placeholder="10.00" value="10.00" />
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Step 1: Theme (customize)</h2>
+        <p class="hint" style="margin-bottom: 12px;">You can customize these colors only: background, primary button, selection, and borders. Adjust radii or font below, then click "Load CTP SDK & Start".</p>
+        <button type="button" class="btn btn-secondary" id="resetTheme">Reset theme to default</button>
+
+        <div class="section-collapsible" id="section-colors">
+          <button type="button" class="section-toggle" data-section="colors"><span class="arrow">▼</span> Colors</button>
+          <div class="section-body theme-grid" id="theme-colors"></div>
+        </div>
+        <div class="section-collapsible" id="section-radii">
+          <button type="button" class="section-toggle" data-section="radii"><span class="arrow">▼</span> Radii</button>
+          <div class="section-body theme-grid radii-grid" id="theme-radii"></div>
+        </div>
+        <div class="section-collapsible" id="section-fonts">
+          <button type="button" class="section-toggle" data-section="fonts"><span class="arrow">▼</span> Fonts</button>
+          <div class="section-body" id="theme-fonts" style="margin-top: 8px;"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="error-msg" id="step1-error"></p>
+        <button type="button" class="btn btn-primary btn-block" id="loadSdkBtn">Load CTP SDK & Start</button>
+      </div>
+    </div>
+
+    <!-- Step 2: CTP Button -->
+    <div id="step-2" class="step-panel">
+      <div class="card">
+        <h2>Step 2: Click to Pay</h2>
+        <p style="margin-bottom: 12px;">SDK loaded with your config and theme. Use the button below to open the CTP flow.</p>
+        <div class="field-group" style="margin-bottom: 16px; max-width: 280px;">
+          <label for="step2-language">Language</label>
+          <select id="step2-language">
+            <option value="en">English</option>
+            <option value="ar">Arabic</option>
+            <option value="fr">French</option>
+          </select>
+        </div>
+        <div id="ctp-container"></div>
+        <div id="ctp-response" role="status" aria-live="polite" aria-label="Checkout response"></div>
+        <p style="margin-top: 16px;"><a href="#" id="backToConfig" style="color: #005996;">← Back to config</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  var STORAGE_KEY = 'ctpThemeDemoConfig';
+
+  /** Only these color keys are exposed to the user; the rest use SDK defaults below. */
+  var USER_COLOR_KEYS = [
+    'background',
+    'primaryBg',
+    'primaryBgHover',
+    'primaryText',
+    'surfaceSelected',
+    'borderSelected'
+  ];
+
+  /** Full palette defaults (non-user keys are fixed; user keys are merged from the form). */
+  var defaultTheme = {
+    colors: {
+      background: '#ffffff',
+      surfaceAlt: '#fafafae5',
+      graySections: '#f5f5f5',
+      surfaceSelected: '#F5F9FC',
+      textPrimary: '#1a1a1a',
+      textSecondary: '#4a4a4a',
+      textMuted: '#6f6f6f',
+      placeholder: '#bbb7b7',
+      textLink: '#005996',
+      borderDefault: '#d4d4d4',
+      borderSelected: '#005996',
+      borderStrong: '#989696',
+      primaryBg: '#F5C842',
+      primaryBgHover: '#e6b93a',
+      primaryText: '#1a1a1a',
+      secondaryBg: '#ffffff',
+      secondaryBgHover: '#f7f7f7',
+      secondaryText: '#1a1a1a',
+      secondaryBorder: '#d4d4d4'
+    },
+    radii: {
+      input: '8px',
+      button: '10px',
+      card: '8px',
+      container: '12px',
+      panel: '8px',
+      thumbnail: '4px',
+      otpBox: '6px'
+    },
+    fonts: {
+      family: "'Gotham Book', 'Gotham', 'Gotham Light',  sans-serif",
+      url: 'https://paypage-sandbox.platform.network.ae/v2/fonts/fonts.css'
+    }
+  };
+
+  function flattenTheme(theme) {
+    var o = {};
+    Object.keys(theme.colors || {}).forEach(function (k) { o['colors.' + k] = theme.colors[k]; });
+    Object.keys(theme.radii || {}).forEach(function (k) { o['radii.' + k] = theme.radii[k]; });
+    Object.keys(theme.fonts || {}).forEach(function (k) { o['fonts.' + k] = theme.fonts[k]; });
+    return o;
+  }
+
+  function unflattenTheme(flat) {
+    var theme = { colors: {}, radii: {}, fonts: {} };
+    Object.keys(flat).forEach(function (key) {
+      var parts = key.split('.');
+      if (parts[0] === 'colors') theme.colors[parts[1]] = flat[key];
+      else if (parts[0] === 'radii') theme.radii[parts[1]] = flat[key];
+      else if (parts[0] === 'fonts') theme.fonts[parts[1]] = flat[key];
+    });
+    return theme;
+  }
+
+  function copyTextToClipboard(text, onOk, onFail) {
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        if (document.execCommand('copy')) onOk();
+        else onFail();
+      } catch (err) {
+        onFail();
+      }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(onOk).catch(fallback);
+      return;
+    }
+    fallback();
+  }
+
+  function clearCtpResponse() {
+    var el = document.getElementById('ctp-response');
+    if (!el) return;
+    el.className = '';
+    el.textContent = '';
+  }
+
+  function renderCtpResponse(kind, heading, payload) {
+    var el = document.getElementById('ctp-response');
+    if (!el) return;
+    el.className = 'ctp-response--' + kind;
+    el.textContent = '';
+    var top = document.createElement('div');
+    top.className = 'ctp-response-top';
+    var head = document.createElement('div');
+    head.className = 'ctp-response-head';
+    head.textContent = heading;
+    var pre = document.createElement('pre');
+    pre.className = 'ctp-response-body';
+    var bodyText;
+    try {
+      bodyText = payload === undefined ? '' : JSON.stringify(payload, null, 2);
+    } catch (e) {
+      bodyText = String(payload);
+    }
+    pre.textContent = bodyText;
+    var copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.className = 'btn-copy';
+    copyBtn.setAttribute('aria-label', 'Copy JSON to clipboard');
+    copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('click', function () {
+      var btn = copyBtn;
+      copyTextToClipboard(
+        bodyText,
+        function () {
+          var prev = btn.textContent;
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          window.setTimeout(function () {
+            btn.textContent = prev;
+            btn.classList.remove('copied');
+          }, 2000);
+        },
+        function () {
+          btn.textContent = 'Failed';
+          window.setTimeout(function () {
+            btn.textContent = 'Copy';
+          }, 2000);
+        }
+      );
+    });
+    top.appendChild(head);
+    top.appendChild(copyBtn);
+    el.appendChild(top);
+    el.appendChild(pre);
+  }
+
+  function getThemeFromForm() {
+    var flat = {};
+    document.querySelectorAll('[data-theme-key]').forEach(function (el) {
+      var key = el.getAttribute('data-theme-key');
+      flat[key] = el.value.trim();
+    });
+    return unflattenTheme(flat);
+  }
+
+  function getConfigFromForm() {
+    var phoneCountryCode = document.getElementById('phoneCountryCode').value.trim();
+    var phoneSubscriber = document.getElementById('phoneSubscriber').value.trim();
+    return {
+      sdkBaseUrl: document.getElementById('sdkBaseUrl').value.trim().replace(/\/$/, ''),
+      apiKey: document.getElementById('apiKey').value.trim(),
+      outletRef: document.getElementById('outletRef').value.trim(),
+      realmName: document.getElementById('realmName').value.trim(),
+      language: document.getElementById('language').value,
+      email: document.getElementById('email').value.trim(),
+      phoneCountryCode: phoneCountryCode,
+      phoneSubscriber: phoneSubscriber,
+      termsUrl: document.getElementById('termsUrl').value.trim(),
+      firstName: document.getElementById('firstName').value.trim(),
+      lastName: document.getElementById('lastName').value.trim(),
+      orderValue: document.getElementById('orderValue').value,
+      currencyCode: document.getElementById('currencyCode').value.trim(),
+      formattedValue: document.getElementById('formattedValue').value.trim(),
+      theme: getThemeFromForm()
+    };
+  }
+
+  function saveConfigToStorage() {
+    try {
+      var config = getConfigFromForm();
+      if (config.phoneCountryCode || config.phoneSubscriber) {
+        config.phoneNumber = {
+          countryCode: config.phoneCountryCode || '+971',
+          subscriber: config.phoneSubscriber
+        };
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    } catch (e) {
+      console.warn('Could not save config to localStorage', e);
+    }
+  }
+
+  function loadConfigFromStorage() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      var config = JSON.parse(raw);
+      if (document.getElementById('sdkBaseUrl')) document.getElementById('sdkBaseUrl').value = config.sdkBaseUrl || '';
+      if (document.getElementById('apiKey')) document.getElementById('apiKey').value = config.apiKey || '';
+      if (document.getElementById('outletRef')) document.getElementById('outletRef').value = config.outletRef || '';
+      if (document.getElementById('realmName')) document.getElementById('realmName').value = config.realmName || '';
+      if (document.getElementById('language')) document.getElementById('language').value = config.language || 'en';
+      if (document.getElementById('email')) document.getElementById('email').value = config.email || '';
+      if (config.phoneNumber) {
+        if (document.getElementById('phoneCountryCode')) document.getElementById('phoneCountryCode').value = config.phoneNumber.countryCode || '+971';
+        if (document.getElementById('phoneSubscriber')) document.getElementById('phoneSubscriber').value = config.phoneNumber.subscriber || '';
+      }
+      if (document.getElementById('termsUrl')) document.getElementById('termsUrl').value = config.termsUrl || '';
+      if (document.getElementById('firstName')) document.getElementById('firstName').value = config.firstName || '';
+      if (document.getElementById('lastName')) document.getElementById('lastName').value = config.lastName || '';
+      if (document.getElementById('orderValue')) document.getElementById('orderValue').value = config.orderValue !== undefined ? config.orderValue : '1000';
+      if (document.getElementById('currencyCode')) document.getElementById('currencyCode').value = config.currencyCode || 'AED';
+      if (document.getElementById('formattedValue')) document.getElementById('formattedValue').value = config.formattedValue !== undefined ? config.formattedValue : '10.00';
+      if (config.theme && (config.theme.colors || config.theme.radii || config.theme.fonts)) {
+        setThemeToForm(config.theme);
+      }
+    } catch (e) {
+      console.warn('Could not load config from localStorage', e);
+    }
+  }
+
+  function setThemeToForm(theme) {
+    var flat = flattenTheme(theme);
+    Object.keys(flat).forEach(function (key) {
+      var el = document.querySelector('[data-theme-key="' + key + '"]');
+      if (!el) return;
+      el.value = flat[key];
+      if (key.startsWith('colors.') && el.type === 'text') {
+        var colorPicker = el.closest('.color-input-wrap') && el.closest('.color-input-wrap').querySelector('input[type="color"]');
+        if (colorPicker) colorPicker.value = flat[key];
+      }
+    });
+  }
+
+  function mergeThemeColors(userColors) {
+    var out = {};
+    Object.keys(defaultTheme.colors).forEach(function (k) {
+      out[k] = defaultTheme.colors[k];
+    });
+    if (userColors) {
+      USER_COLOR_KEYS.forEach(function (k) {
+        if (userColors[k] != null && String(userColors[k]).trim() !== '') {
+          out[k] = String(userColors[k]).trim();
+        }
+      });
+    }
+    return out;
+  }
+
+  function renderThemeForm() {
+    var colorsEl = document.getElementById('theme-colors');
+    colorsEl.innerHTML = '';
+    USER_COLOR_KEYS.forEach(function (k) {
+      var wrap = document.createElement('div');
+      wrap.className = 'field-group';
+      var label = document.createElement('label');
+      label.textContent = k;
+      var colorWrap = document.createElement('div');
+      colorWrap.className = 'color-input-wrap';
+      var colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.value = defaultTheme.colors[k];
+      colorInput.id = 'theme-colors-' + k;
+      var textInput = document.createElement('input');
+      textInput.type = 'text';
+      textInput.setAttribute('data-theme-key', 'colors.' + k);
+      textInput.value = defaultTheme.colors[k];
+      textInput.placeholder = '#hex';
+      colorInput.addEventListener('input', function () { textInput.value = colorInput.value; });
+      textInput.addEventListener('input', function () {
+        if (/^#[0-9A-Fa-f]{6}$/.test(textInput.value)) colorInput.value = textInput.value;
+      });
+      colorWrap.appendChild(colorInput);
+      colorWrap.appendChild(textInput);
+      wrap.appendChild(label);
+      wrap.appendChild(colorWrap);
+      colorsEl.appendChild(wrap);
+    });
+
+    var radiiEl = document.getElementById('theme-radii');
+    radiiEl.innerHTML = '';
+    Object.keys(defaultTheme.radii).forEach(function (k) {
+      var wrap = document.createElement('div');
+      wrap.className = 'field-group';
+      var label = document.createElement('label');
+      label.textContent = k;
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.setAttribute('data-theme-key', 'radii.' + k);
+      input.value = defaultTheme.radii[k];
+      input.placeholder = 'e.g. 8px';
+      wrap.appendChild(label);
+      wrap.appendChild(input);
+      radiiEl.appendChild(wrap);
+    });
+
+    var fontsEl = document.getElementById('theme-fonts');
+    fontsEl.innerHTML = '';
+    Object.keys(defaultTheme.fonts).forEach(function (k) {
+      var wrap = document.createElement('div');
+      wrap.className = 'field-group';
+      var label = document.createElement('label');
+      label.textContent = k;
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.setAttribute('data-theme-key', 'fonts.' + k);
+      input.value = defaultTheme.fonts[k];
+      input.style.width = '100%';
+      wrap.appendChild(label);
+      wrap.appendChild(input);
+      fontsEl.appendChild(wrap);
+    });
+  }
+
+  document.querySelectorAll('.section-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var section = document.getElementById('section-' + btn.getAttribute('data-section'));
+      if (section) section.classList.toggle('collapsed');
+    });
+  });
+
+  document.getElementById('resetTheme').addEventListener('click', function () {
+    setThemeToForm(defaultTheme);
+  });
+
+  document.getElementById('loadSdkBtn').addEventListener('click', function () {
+    var apiKey = document.getElementById('apiKey').value.trim();
+    var outletRef = document.getElementById('outletRef').value.trim();
+    var sdkBaseUrl = document.getElementById('sdkBaseUrl').value.trim().replace(/\/$/, '');
+    var errEl = document.getElementById('step1-error');
+
+    if (!apiKey || !outletRef) {
+      errEl.textContent = 'Please enter API Key and Outlet Ref.';
+      errEl.classList.add('visible');
+      return;
+    }
+    if (!sdkBaseUrl) {
+      errEl.textContent = 'Please enter SDK Base URL.';
+      errEl.classList.add('visible');
+      return;
+    }
+    errEl.classList.remove('visible');
+    errEl.textContent = '';
+
+    saveConfigToStorage();
+
+    var scriptUrl = sdkBaseUrl + '/click-to-pay/sdk.js';
+
+    if (window.__ctpThemeDemoScript) {
+      window.__ctpThemeDemoScript.remove();
+      window.__ctpThemeDemoScript = null;
+    }
+
+    var script = document.createElement('script');
+    script.id = 'ctp-sdk-script';
+    script.src = scriptUrl;
+    script.async = true;
+    window.__ctpThemeDemoScript = script;
+
+    script.onload = function () {
+      document.getElementById('step-1').classList.remove('active');
+      document.getElementById('step-2').classList.add('active');
+
+      var container = document.getElementById('ctp-container');
+      container.innerHTML = '';
+      clearCtpResponse();
+
+      var formConfig = getConfigFromForm();
+      var step2LangEl = document.getElementById('step2-language');
+      if (step2LangEl) step2LangEl.value = formConfig.language || 'en';
+
+      if (!window.NI_CTP || typeof window.NI_CTP.createClickToPayButton !== 'function') {
+        container.innerHTML = '<p style="color:#c0392b;">NI_CTP.createClickToPayButton not found. Ensure the script loads from a URL ending with click-to-pay/sdk.js</p>';
+        return;
+      }
+      var theme = formConfig.theme;
+      theme = Object.assign({}, theme, {
+        colors: mergeThemeColors(theme.colors)
+      });
+
+      var config = {
+        id: 'ctp-theme-demo',
+        apiKey: formConfig.apiKey,
+        outletRef: formConfig.outletRef,
+        realmName: formConfig.realmName || undefined,
+        language: formConfig.language || 'en',
+        email: formConfig.email || undefined,
+        phoneNumber: (formConfig.phoneSubscriber || formConfig.phoneCountryCode) ? {
+          countryCode: formConfig.phoneCountryCode || '+971',
+          subscriber: formConfig.phoneSubscriber
+        } : undefined,
+        termsUrl: formConfig.termsUrl || undefined,
+        billingAddress: (formConfig.firstName || formConfig.lastName) ? { firstName: formConfig.firstName, lastName: formConfig.lastName } : undefined,
+        orderDetails: {
+          amount: {
+            value: formConfig.orderValue ? parseInt(formConfig.orderValue, 10) : 1000,
+            currencyCode: formConfig.currencyCode || 'AED',
+            formattedValue: formConfig.formattedValue || '10.00'
+          }
+        },
+        style: {
+          ...theme,
+          fonts: {
+            ...theme.fonts,
+            fontFamily: (theme.fonts && theme.fonts.family) ? theme.fonts.family.replace(/['"]/g, '').split(',')[0].trim() : 'Inter'
+          }
+        },
+        onCheckoutComplete: function (payload) {
+          console.log('Checkout complete', payload);
+          renderCtpResponse('success', 'Checkout complete', payload);
+        },
+        onCheckoutFail: function (payload) {
+          console.error('Checkout failed', payload);
+          renderCtpResponse('error', 'Checkout failed', payload);
+        },
+        onClose: function () {
+          console.log('CTP UI closed');
+          renderCtpResponse('info', 'CTP UI closed', { closedAt: new Date().toISOString() });
+        }
+      };
+      console.log(config);
+      
+      window.NI_CTP.createClickToPayButton('ctp-container', config);
+    };
+
+    script.onerror = function () {
+      document.getElementById('step1-error').textContent = 'Failed to load script from ' + scriptUrl + '. Check the SDK Base URL and CORS.';
+      document.getElementById('step1-error').classList.add('visible');
+    };
+
+    document.head.appendChild(script);
+  });
+
+  document.getElementById('backToConfig').addEventListener('click', function (e) {
+    e.preventDefault();
+    window.NI_CTP.unMountCTPUi();
+    clearCtpResponse();
+    document.getElementById('step-2').classList.remove('active');
+    document.getElementById('step-1').classList.add('active');
+  });
+
+  document.getElementById('step2-language').addEventListener('change', function () {
+    var lang = this.value;
+    var step1Lang = document.getElementById('language');
+    if (step1Lang) step1Lang.value = lang;
+    saveConfigToStorage();
+    if (window.NI_CTP && typeof window.NI_CTP.handleLanguageSwitch === 'function') {
+      window.NI_CTP.handleLanguageSwitch(lang);
+    }
+  });
+
+  renderThemeForm();
+  loadConfigFromStorage();
+})();
+  </script>
+</body>
+</html>
