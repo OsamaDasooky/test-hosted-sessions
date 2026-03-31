@@ -152,6 +152,27 @@
     .field-group input:focus, .field-group select:focus {
       outline: none; border-color: #253cfc;
     }
+    .field-group textarea.ctp-config-textarea {
+      min-height: 220px;
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: .82rem;
+      font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+      background: #fff;
+      line-height: 1.45;
+      resize: vertical;
+      transition: border-color .2s;
+    }
+    .field-group textarea.ctp-config-textarea:focus {
+      outline: none; border-color: #253cfc;
+    }
+    .ctp-config-hint {
+      font-size: .8rem;
+      color: #666;
+      margin: 0;
+      line-height: 1.4;
+    }
 
     /* ── 3DS Modal ── */
     .modal {
@@ -190,7 +211,7 @@
     [data-show='PAYMENT_DONE']         { color: #27ae60; font-weight: 700; padding: 20px 0; font-size: 1.1rem; }
     [data-show='PARTIAL_AUTH_DECLINED']{ color: #e67e22; font-weight: 700; padding: 20px 0; }
 
-    #mount-point { height: 400px; }
+    #mount-point { height: 450px; }
 
     /* ── Make Payment button ── */
     .checkoutButton {
@@ -221,22 +242,6 @@
       display: none; flex-direction: row; padding: 8px 0;
       margin-bottom: 8px; justify-content: space-between;
       font-size: .85rem; color: #444;
-    }
-
-    /* ── VIS installment cards ── */
-    .flex-container { display: flex; flex-direction: column; margin: 10px 0; font-size: .85rem; gap: 6px; }
-    .flex-item {
-      display: flex; flex-direction: column; flex-wrap: wrap;
-      padding: 12px 14px; border: 2px solid #e8e8e8;
-      background: #fff; border-radius: 10px; cursor: pointer;
-      transition: border-color .2s, box-shadow .2s;
-    }
-    .flex-item:hover { border-color: #b0bbff; }
-    .flex-item.selected { border-color: #253cfc; background: #f5f7ff; }
-    .flex-item.expanded .terms-and-conditions { display: block; }
-    .terms-and-conditions {
-      display: none; padding: 10px; border: 1px solid #e0e0e0;
-      border-radius: 6px; margin-top: 10px; background: #fafafa;
     }
   </style>
 </head>
@@ -329,6 +334,7 @@
         <label><input type="checkbox" id="showInputLabel" /> Show input label style</label>
         <label><input type="checkbox" id="hideLoadingBehavior" /> Hide loading behavior</label>
         <label><input type="checkbox" id="showDigitalPayments" /> Show Digital Payments</label>
+        <label><input type="checkbox" id="enableClickToPay" /> Enable Click to Pay (<code>enableClickToPay</code>)</label>
       </div>
 
       <!-- Order settings -->
@@ -357,6 +363,16 @@
         <div class="field-group">
           <label for="phoneNumber">Phone Number</label>
           <input type="text" id="phoneNumber" placeholder="501234567" />
+        </div>
+      </div>
+
+      <!-- CTP config passed to mountCardInput -->
+      <div class="card" style="display:flex;flex-direction:column;gap:10px;">
+        <h2>CTP config (<code>ctpConfig</code>)</h2>
+        <p class="ctp-config-hint">Edit as JSON. Invalid JSON is ignored at mount (<code>{}</code> used). <code>orderDetails</code> and <code>email</code> update from Order Settings when you leave those fields. Reload after other edits so the payment form mounts again.</p>
+        <div class="field-group">
+          <label for="ctp-config-json">JSON</label>
+          <textarea id="ctp-config-json" class="ctp-config-textarea" spellcheck="false" rows="14" autocomplete="off"></textarea>
         </div>
       </div>
 
@@ -390,8 +406,6 @@
         <div data-show="MAKE_PAYMENT" style="display:none; flex-direction:column;">
           <div id="mount-point"></div>
           <div data-show="SHOW_PAYMENT_OPTION" style="display:none">
-            <div id="installment-option" data-show="INSTALLMENT_OPTIONS"></div>
-            <div id="vis-plan" data-show="INSTALLMENT_PLAN"></div>
             <div class="currency-row" id="currency-conversion-block">
               <div style="height:20px" id="currency-input"></div>
               <div style="height:20px" id="currency-conversion"></div>
@@ -441,7 +455,7 @@
         return;
       }
 
-      let sdkUrl = 'http://localhost:8080';
+      let sdkUrl = 'http://localhost:4000';
       try {
         const res = await fetch('/api/env-config');
         if (res.ok) {
@@ -491,6 +505,7 @@
       const enableDcc            = JSON.parse(localStorage.getItem('enableDcc'));
       const hideLoadingBehavior  = JSON.parse(localStorage.getItem('hideLoadingBehavior'));
       const isMultiplePaymentMethods = JSON.parse(localStorage.getItem('showDigitalPayments'));
+      const enableClickToPayStored   = JSON.parse(localStorage.getItem('enableClickToPay'));
       const selectedBillingAddress   = JSON.parse(localStorage.getItem('billingAddress'));
 
       const isMCPEnabled = true;
@@ -548,6 +563,100 @@
         showInputsLabel: showInputLabel && showInputLabel.value
       };
 
+      const CTP_CONFIG_LS_KEY = 'ctpConfigJson';
+      const orderAmountNum = Number(orderAmount);
+      const ctpConfigOrderDetails = {
+        amount: {
+          value: orderAmountNum,
+          currencyCode: selectedCurrencyFromLocalStorage(),
+          formattedValue: minorToMajorUnits(orderAmountNum, minimumFractionDigits)
+        }
+      };
+      const defaultCtpConfigObject = {
+        billingAddress: {
+          firstName: 'Osama',
+          lastName: 'Dasooky',
+          countryCode: 'JO'
+        },
+        termsUrl: 'https://www.example.com/terms',
+        phoneNumber: {
+          countryCode: '962',
+          subscriber: '786238888'
+        },
+        orderDetails: ctpConfigOrderDetails,
+        style: {
+          colors: {
+            primaryBg: '#253cfc',
+            primaryBgHover: '#1a2fd4',
+            borderSelected: '#253cfc'
+          },
+          radii: {
+            input: '8px',
+            button: '8px',
+            card: '8px',
+            container: '8px'
+          },
+          fonts: {
+            family: 'Lato',
+            url: '',
+            fontFamily: 'Lato'
+          }
+        }
+      };
+      const emailTrimmed = emailAddress && String(emailAddress).trim();
+      if (emailTrimmed) defaultCtpConfigObject.email = emailTrimmed;
+      const DEFAULT_CTP_CONFIG_JSON = JSON.stringify(defaultCtpConfigObject, null, 2);
+
+      const clickToPayEnabled =
+        enableClickToPayStored == null ? true : !!enableClickToPayStored.value;
+
+      function getCtpOrderDetailsFromInputs() {
+        const amtEl = document.getElementById('orderAmount');
+        const curEl = document.getElementById('currency');
+        const amountRaw =
+          amtEl && amtEl.value !== '' && amtEl.value != null
+            ? amtEl.value
+            : localStorage.getItem('amount') || '0';
+        const amountNum = Number(amountRaw);
+        const currencyCode =
+          (curEl && curEl.value.trim()) || localStorage.getItem('currency') || 'AED';
+        const nf = new Intl.NumberFormat('en-GB', {
+          style: 'currency',
+          currency: currencyCode
+        });
+        const { minimumFractionDigits } = nf.resolvedOptions();
+        const n = Number.isFinite(amountNum) ? amountNum : 0;
+        return {
+          amount: {
+            value: n,
+            currencyCode,
+            formattedValue: minorToMajorUnits(n, minimumFractionDigits)
+          }
+        };
+      }
+
+      function syncCtpConfigFieldsFromOrderInputs() {
+        const el = document.getElementById('ctp-config-json');
+        if (!el) return;
+        let obj;
+        try {
+          obj = JSON.parse(el.value);
+        } catch (_) {
+          return;
+        }
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return;
+        obj.orderDetails = getCtpOrderDetailsFromInputs();
+        const em =
+          (document.getElementById('emailAddress') &&
+            document.getElementById('emailAddress').value.trim()) ||
+          '';
+        if (em) obj.email = em;
+        else delete obj.email;
+        const next = JSON.stringify(obj, null, 2);
+        el.value = next;
+        localStorage.setItem(CTP_CONFIG_LS_KEY, next);
+      }
+
       // ── State machine ─────────────────────────────────────────────────────
       const stateMachine = {
         initial: 'INITIAL',
@@ -564,9 +673,6 @@
       let current          = stateMachine.initial;
       let sessionId        = null;
       let isDccSelected    = false;
-      let selectedFlexItem = null;
-      let selectedVisPlan  = null;
-      let mcpResponse      = [];
 
 
       // ═══════════════════════════ STATE MACHINE ════════════════════════════
@@ -633,157 +739,11 @@
       }
 
 
-      // ═══════════════════════════ VIS PLANS ════════════════════════════════
-
-      function getSelectedVisPlan() { return selectedVisPlan; }
-
-      function formatText(text) {
-        let out = text.replace(/\n/g, '<br>');
-        out = out.replace(/(\d+\))\s/g, '<p>$1 ');
-        out = out.replace(/\b(http[s]?:\/\/\S+)\b/gi, '<a href="$1" target="_blank">$1</a>');
-        return out;
-      }
-
-      function buildVisFlexItem(visOption, index) {
-        const freqMap = {
-          MONTHLY: 'Monthly', WEEKLY: 'Weekly',
-          'BI-MONTHLY': 'Bi-monthly', 'BI-WEEKLY': 'Bi-weekly'
-        };
-
-        const flexItem = document.createElement('div');
-        flexItem.classList.add('flex-item');
-
-        const header = document.createElement('div');
-        header.innerHTML = `<strong>PAY IN ${visOption.numberOfInstallments}</strong>
-          ${visOption.numberOfInstallments === 'FULL'
-            ? `<p>${minorToMajorUnits(order.amount.value)} ${order.amount.currencyCode}</p>`
-            : ''}`;
-        flexItem.appendChild(header);
-
-        let checkbox = null, readMoreLink = null, readLessLink = null;
-
-        if (index !== 0) {
-          const installmentDiv = document.createElement('div');
-          installmentDiv.textContent = `${freqMap[visOption.installmentFrequency]} Installment: ${minorToMajorUnits(visOption.costInfo.lastInstallment.totalAmount)} ${visOption.costInfo.currency}`;
-          flexItem.appendChild(installmentDiv);
-
-          const rateDiv = document.createElement('div');
-          rateDiv.textContent = `${freqMap[visOption.installmentFrequency]} Rate: ${(visOption.costInfo.annualPercentageRate / 100).toFixed(2)} %`;
-          flexItem.appendChild(rateDiv);
-
-          const feeDiv = document.createElement('div');
-          feeDiv.textContent = `Processing Fees: ${minorToMajorUnits(visOption.costInfo.totalUpfrontFees)} ${visOption.costInfo.currency}`;
-          flexItem.appendChild(feeDiv);
-
-          const engTnC = visOption.termsAndConditions.filter(t => t.languageCode === 'eng');
-          const termsContainer = document.createElement('div');
-          termsContainer.classList.add('terms-and-conditions');
-
-          checkbox = document.createElement('input');
-          checkbox.type = 'checkbox';
-          checkbox.style.cssText = 'width:18px;height:18px;margin-right:4px;';
-          checkbox.id = `checkbox-${engTnC[0].languageCode}`;
-          checkbox.disabled = true;
-          termsContainer.appendChild(checkbox);
-
-          const label = document.createElement('label');
-          label.setAttribute('for', checkbox.id);
-          label.textContent = ' Terms and Conditions: ';
-          label.style.cssText = 'vertical-align:bottom;line-height:18px;';
-          termsContainer.appendChild(label);
-
-          readMoreLink = document.createElement('a');
-          readMoreLink.textContent = 'Read More';
-          readMoreLink.style.cssText = 'vertical-align:bottom;line-height:18px;cursor:pointer;color:#253cfc;';
-          termsContainer.appendChild(readMoreLink);
-
-          const tncText = document.createElement('div');
-          tncText.innerHTML = formatText(engTnC[0].text);
-          tncText.style.cssText = 'font-size:12px;display:none;margin-top:6px;';
-          termsContainer.appendChild(tncText);
-
-          readMoreLink.addEventListener('click', e => {
-            e.preventDefault(); e.stopPropagation();
-            tncText.style.display = tncText.style.display === 'none' ? 'inline' : 'none';
-            readMoreLink.style.display = 'none';
-            checkbox.disabled = false;
-            readLessLink = document.createElement('a');
-            readLessLink.textContent = 'Read Less';
-            readLessLink.style.cssText = 'margin-left:4px;cursor:pointer;color:#253cfc;';
-            termsContainer.appendChild(readLessLink);
-            readLessLink.addEventListener('click', ev => {
-              ev.preventDefault(); ev.stopPropagation();
-              tncText.style.display = 'none';
-              readLessLink.style.display = 'none';
-              readMoreLink.style.display = 'inline';
-              if (!checkbox.checked) checkbox.disabled = true;
-              else selectedVisPlan = null;
-            });
-          });
-
-          flexItem.appendChild(termsContainer);
-
-          checkbox.addEventListener('click', e => {
-            if (e.target.checked) { selectedVisPlan = visOption; enableMakePaymentButton(); }
-            else { disableMakePaymentButton(); selectedVisPlan = null; }
-            if (readMoreLink.style.display === 'inline') checkbox.disabled = true;
-            e.stopPropagation();
-          });
-        }
-
-        flexItem.addEventListener('click', e => {
-          if (readLessLink) readLessLink.click();
-          if (!e.target.closest('input[type="checkbox"]')) {
-            flexItem.classList.toggle('expanded');
-            if (visOption.numberOfInstallments === 'FULL' && flexItem.classList.contains('expanded')) {
-              enableMakePaymentButton(); selectedVisPlan = visOption;
-            } else { disableMakePaymentButton(); selectedVisPlan = null; }
-            flexItem.getElementsByTagName('strong')[0].style.color = '#253cfc';
-            if (selectedFlexItem && selectedFlexItem !== flexItem) {
-              selectedFlexItem.classList.remove('selected', 'expanded');
-              selectedFlexItem.getElementsByTagName('strong')[0].style.color = '#222';
-              const prev = selectedFlexItem.querySelector('input[type="checkbox"]');
-              if (prev) prev.checked = false;
-            }
-            flexItem.classList.toggle('selected');
-            if (!flexItem.classList.contains('selected')) {
-              if (checkbox) checkbox.checked = false;
-              selectedVisPlan = null;
-              flexItem.getElementsByTagName('strong')[0].style.color = '#222';
-            }
-            selectedFlexItem = flexItem;
-          }
-        });
-
-        return flexItem;
-      }
-
-      async function getSupportedVisPlans() {
-        const container = document.getElementById('installment-option');
-        const { response: { matchedPlans } } = await window.NI.handleGetVISPlans({
-          apiKey, outletRef, sessionId, realmName, id: 'vis-plan',
-          body: { action: order.action, amount: { currencyCode: merchantCurrency, value: orderAmount } }
-        });
-        document.querySelector('[data-show="LOADING"]').style.display = 'none';
-        if (!matchedPlans.length) return;
-        container.style.display = 'inline';
-        const flexContainer = document.createElement('div');
-        flexContainer.classList.add('flex-container');
-        disableMakePaymentButton();
-        matchedPlans.unshift({ numberOfInstallments: 'FULL' });
-        matchedPlans.forEach((v, i) => flexContainer.appendChild(buildVisFlexItem(v, i)));
-        container.appendChild(flexContainer);
-      }
-
-
       // ═══════════════════════ MCP – FOREX CONVERSION ═══════════════════════
 
       async function getConvertedAmountForCurrency() {
         document.getElementById('currency-conversion-value').style.display = 'none';
         const selectedCurrencyCode = document.getElementById('currency-list').value;
-
-        if (selectedCurrencyCode === 'AED') getSupportedVisPlans();
-        else document.getElementById('installment-option').innerHTML = '';
 
         if (merchantCurrency === selectedCurrencyCode) return null;
 
@@ -836,8 +796,6 @@
             res.currencyList.forEach(c => currencyInput.append(appendOption(c)));
             defaultCurrency = res.currencyList[0].currencyCode;
             isCurrencyListNull = false;
-          } else if (order.amount.currencyCode === 'AED' && order.action === 'PURCHASE') {
-            await getSupportedVisPlans();
           }
           if (!res.currencyList || res.currencyList.length === 0 || error) {
             currencyInput.append(appendOption({ currencyCode: merchantCurrency }));
@@ -884,22 +842,6 @@
           if (enableDcc && enableDcc.value) {
             payload = { ...payload, payment: { isDccSelected } };
           }
-          const vis = getSelectedVisPlan();
-          if (vis) {
-            const engTnC = vis.termsAndConditions
-              ? vis.termsAndConditions.filter(t => t.languageCode === 'eng') : [];
-            payload = {
-              ...payload,
-              payment: {
-                ...payload.payment,
-                vis: {
-                  planSelectionIndicator: vis.numberOfInstallments !== 'FULL',
-                  vPlanId: vis.vPlanID || null,
-                  acceptedTAndCVersion: vis.numberOfInstallments === 'FULL' ? null : (engTnC[0] ? engTnC[0].version : null)
-                }
-              }
-            };
-          }
 
           const paymentResponse = await makePaymentApi(outletRef, sessionId, payload, realmName);
           threeDSModal.classList.add('open');
@@ -928,6 +870,26 @@
 
       // ═══════════════════════ SDK MOUNT ════════════════════════════════════
 
+      function parseCtpConfigFromTextarea() {
+        const el = document.getElementById('ctp-config-json');
+        const raw = el ? el.value.trim() : '';
+        if (!raw) return {};
+        try {
+          return JSON.parse(raw);
+        } catch (e) {
+          console.warn('ctpConfig JSON parse failed:', e.message);
+          return {};
+        }
+      }
+
+      function initCtpConfigTextarea() {
+        const el = document.getElementById('ctp-config-json');
+        if (!el) return;
+        const saved = localStorage.getItem(CTP_CONFIG_LS_KEY);
+        el.value = saved != null ? saved : DEFAULT_CTP_CONFIG_JSON;
+        el.addEventListener('focusout', () => localStorage.setItem(CTP_CONFIG_LS_KEY, el.value));
+      }
+
       function mountCardInput() {
         window?.NI?.mountCardInput('mount-point', {
           style, apiKey, realmName, outletRef,
@@ -942,6 +904,8 @@
             threeDSModal.classList.remove('open');
             isDccSelected = dccFlow?.isDccSelected || false;
           },
+          ctpConfig: parseCtpConfigFromTextarea(),
+          enableClickToPay: clickToPayEnabled,
           orderDetails,
           multiplePaymentMethods: isMultiplePaymentMethods && isMultiplePaymentMethods.value,
           onChangeValidStatus: ({ isCVVValid, isExpiryValid, isNameValid, isPanValid, isAaniDataValid }) => {
@@ -949,36 +913,18 @@
             else if (!document.getElementById('payment-btn').hasAttribute('disabled')) disableMakePaymentButton();
           },
           onChangePaymentMethod: ({ selectedPaymentType, selectedDigitalPayment }) => {
+
             if (selectedPaymentType === 'DIGITAL_PAYMENTS' && selectedDigitalPayment) enableMakePaymentButton();
+            else if (selectedDigitalPayment === 'VISA_CLICK_TO_PAY') enableMakePaymentButton();
+            else disableMakePaymentButton();
           },
           onSuccess: async () => {
             send('AUTH_SUCCESS');
-            mcpResponse = await getSupportedCurrencies();
+            await getSupportedCurrencies();
             if (isMCPEnabled) document.querySelector('[data-show="SHOW_PAYMENT_OPTION"]').style.display = 'block';
           },
           onFail: () => send('AUTH_ERROR')
         });
-      }
-
-
-      // ═══════════════════════ MUTATION OBSERVER ════════════════════════════
-
-      function observePaymentPanel() {
-        const observer = new MutationObserver(mutations => {
-          mutations.forEach(async () => {
-            const el = document.querySelector('[data-show="MAKE_PAYMENT"]');
-            if (!el || el.style.display !== 'block') return;
-            const isAED = order.amount.currencyCode === 'AED';
-            const isPurchase = order.action === 'PURCHASE';
-            const isGeoAED   = mcpResponse && mcpResponse.geoCurrency === 'AED';
-            if (isMCPEnabled && isAED && isGeoAED && isPurchase) await getSupportedVisPlans();
-            else if (!isMCPEnabled && isAED && isPurchase) await getSupportedVisPlans();
-          });
-        });
-        observer.observe(
-          document.querySelector('[data-show="MAKE_PAYMENT"]'),
-          { attributes: true, attributeFilter: ['style'] }
-        );
       }
 
 
@@ -1054,13 +1000,19 @@
       function initOrderAmount() {
         const el = document.getElementById('orderAmount');
         el.value = orderAmount;
-        el.addEventListener('focusout', () => localStorage.setItem('amount', el.value));
+        el.addEventListener('focusout', () => {
+          localStorage.setItem('amount', el.value);
+          syncCtpConfigFieldsFromOrderInputs();
+        });
       }
 
       function initCurrencyInput() {
         const el = document.getElementById('currency');
         el.value = selectedCurrencyFromLocalStorage();
-        el.addEventListener('focusout', () => localStorage.setItem('currency', el.value));
+        el.addEventListener('focusout', () => {
+          localStorage.setItem('currency', el.value);
+          syncCtpConfigFieldsFromOrderInputs();
+        });
       }
 
       function initRealmNameInput() {
@@ -1071,7 +1023,10 @@
       function initEmailInput() {
         const el = document.getElementById('emailAddress');
         el.value = emailAddress || '';
-        el.addEventListener('focusout', () => localStorage.setItem('emailAddress', el.value));
+        el.addEventListener('focusout', () => {
+          localStorage.setItem('emailAddress', el.value);
+          syncCtpConfigFieldsFromOrderInputs();
+        });
       }
 
       function initPhoneInput() {
@@ -1086,7 +1041,8 @@
           { id: 'showInputLabel',      save: el => localStorage.setItem('showInputLabel',      JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
           { id: 'hideLoadingBehavior', save: el => localStorage.setItem('hideLoadingBehavior', JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
           { id: 'showDigitalPayments', save: el => localStorage.setItem('showDigitalPayments', JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
-          { id: 'enableDcc',           save: el => localStorage.setItem('enableDcc',           JSON.stringify({ value: el.checked })),   restore: v => v && v.value }
+          { id: 'enableDcc',           save: el => localStorage.setItem('enableDcc',           JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
+          { id: 'enableClickToPay',    save: el => localStorage.setItem('enableClickToPay',    JSON.stringify({ value: el.checked })),   restore: v => (v == null ? true : !!v.value) }
         ];
         configs.forEach(({ id, save, restore }) => {
           const el  = document.getElementById(id);
@@ -1115,11 +1071,11 @@
         send('LOAD_PAYPAGE');
         document.querySelector('[data-show="MAKE_PAYMENT"]').style.display = 'block';
 
-        mountCardInput();
+        initCtpConfigTextarea();
 
         initLanguageSelector();
         initRealmNameSelector();
-        initRealmNameInput()
+        initRealmNameInput();
         initNameOptions();
         initOrderType();
         initOrderAmount();
@@ -1130,7 +1086,8 @@
         initCurrencyListDropdown();
         initCurrencyBlockVisibility();
 
-        observePaymentPanel();
+        syncCtpConfigFieldsFromOrderInputs();
+        mountCardInput();
 
         document.getElementById('payment-btn').addEventListener('click', createPayment);
       }
