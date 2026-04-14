@@ -73,6 +73,8 @@ app.get('/api/env-config', (req, res) => {
 /**
  * POST /api/hosted-sessions/payment
  * Body: { sessionId, outletRef, order [, merchantApiKey, env ] }
+ * `order` is forwarded as the JSON body to N-Genius hosted-session payment, including
+ * `order.payment.vis` (Visa Installment Services) when the client sends it.
  * When merchantApiKey and env are present, use ENV_URLS[env] and skip .env.
  */
 app.post('/api/hosted-sessions/payment', async (req, res) => {

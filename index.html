@@ -182,6 +182,23 @@
     }
     .modal.open { display: flex; }
     .modal.open { display: flex; }
+    /* While VIS plan picker is open: hide hosted-session card mount only */
+    body.vis-suppress-mount #mount-point {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+      opacity: 0 !important;
+      height: 0 !important;
+      min-height: 0 !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    body.vis-suppress-mount #mount-point iframe {
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
     .modal-content {
       background: #fff; border-radius: 12px; height: 65%; width: 35%;
       padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.3);
@@ -242,6 +259,35 @@
       display: none; flex-direction: row; padding: 8px 0;
       margin-bottom: 8px; justify-content: space-between;
       font-size: .85rem; color: #444;
+    }
+
+    /* Visa Installment Services (VIS) — Web SDK Integration */
+    #installment-options { display: none; margin: 12px 0; }
+    #installment-options.is-visible { display: block; }
+    .vis-flex-container {
+      display: flex; flex-direction: column; margin: 10px 0; font-size: 14px;
+    }
+    .vis-flex-item {
+      flex: 1 0 auto; display: flex; flex-direction: column; flex-wrap: wrap;
+      padding: 10px; margin: 5px 0; box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+      cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      background: #fff; border-radius: 8px; border: 2px solid transparent;
+    }
+    .vis-flex-item.selected { border-color: #253cfc; }
+    .vis-flex-item .vis-tnc { margin-top: 8px; font-size: 12px; display: none; }
+    .vis-flex-item.vis-expanded .vis-tnc { display: block; }
+    .vis-flex-item .vis-tnc label { display: flex; align-items: flex-start; gap: 6px; cursor: pointer; }
+
+    .vis-plans-error {
+      display: none;
+      margin: 12px 0;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #fdecea;
+      border: 1px solid #f5c6cb;
+      color: #c0392b;
+      font-size: 0.9rem;
+      line-height: 1.4;
     }
   </style>
 </head>
@@ -335,6 +381,7 @@
         <label><input type="checkbox" id="hideLoadingBehavior" /> Hide loading behavior</label>
         <label><input type="checkbox" id="showDigitalPayments" /> Show Digital Payments</label>
         <label><input type="checkbox" id="enableClickToPay" /> Enable Click to Pay (<code>enableClickToPay</code>)</label>
+        <label><input type="checkbox" id="enableVis" /> Visa Installment Services (VIS) — fetch plans and plan picker before payment</label>
       </div>
 
       <!-- Order settings -->
@@ -405,6 +452,8 @@
 
         <div data-show="MAKE_PAYMENT" style="display:none; flex-direction:column;">
           <div id="mount-point"></div>
+          <div id="vis-plans-error" class="vis-plans-error" role="alert" aria-live="assertive"></div>
+          <div id="installment-options" aria-live="polite"></div>
           <div data-show="SHOW_PAYMENT_OPTION" style="display:none">
             <div class="currency-row" id="currency-conversion-block">
               <div style="height:20px" id="currency-input"></div>
@@ -506,6 +555,7 @@
       const hideLoadingBehavior  = JSON.parse(localStorage.getItem('hideLoadingBehavior'));
       const isMultiplePaymentMethods = JSON.parse(localStorage.getItem('showDigitalPayments'));
       const enableClickToPayStored   = JSON.parse(localStorage.getItem('enableClickToPay'));
+      const enableVis                = JSON.parse(localStorage.getItem('enableVis'));
       const selectedBillingAddress   = JSON.parse(localStorage.getItem('billingAddress'));
 
       const isMCPEnabled = true;
@@ -673,6 +723,8 @@
       let current          = stateMachine.initial;
       let sessionId        = null;
       let isDccSelected    = false;
+      let visCheckoutSessionActive = false;
+      let selectedVisPlan  = null;
 
 
       // ═══════════════════════════ STATE MACHINE ════════════════════════════
@@ -814,6 +866,292 @@
 
       // ═══════════════════════ SESSION & PAYMENT ════════════════════════════
 
+      const MOUNT_POINT_INLINE_PROPS = [
+        'display',
+        'visibility',
+        'pointer-events',
+        'opacity',
+        'height',
+        'min-height',
+        'overflow',
+        'margin',
+        'padding'
+      ];
+
+      function releaseMountPointVisSuppression() {
+        document.body.classList.remove('vis-suppress-mount');
+        const mountPoint = document.getElementById('mount-point');
+        if (mountPoint) {
+          MOUNT_POINT_INLINE_PROPS.forEach(p => mountPoint.style.removeProperty(p));
+          mountPoint.querySelectorAll('iframe').forEach(f => {
+            f.style.removeProperty('visibility');
+            f.style.removeProperty('opacity');
+            f.style.removeProperty('pointer-events');
+          });
+        }
+      }
+
+      function suppressMountPointForVisPicker() {
+        document.body.classList.add('vis-suppress-mount');
+        const mountPoint = document.getElementById('mount-point');
+        if (mountPoint) {
+          mountPoint.style.setProperty('display', 'none', 'important');
+          mountPoint.style.setProperty('visibility', 'hidden', 'important');
+          mountPoint.style.setProperty('pointer-events', 'none', 'important');
+          mountPoint.style.setProperty('opacity', '0', 'important');
+          mountPoint.style.setProperty('height', '0', 'important');
+          mountPoint.style.setProperty('min-height', '0', 'important');
+          mountPoint.style.setProperty('overflow', 'hidden', 'important');
+          mountPoint.style.setProperty('margin', '0', 'important');
+          mountPoint.style.setProperty('padding', '0', 'important');
+          mountPoint.querySelectorAll('iframe').forEach(f => {
+            f.style.setProperty('visibility', 'hidden', 'important');
+            f.style.setProperty('opacity', '0', 'important');
+            f.style.setProperty('pointer-events', 'none', 'important');
+          });
+        }
+      }
+
+      /** After payload is built: drop VIS UI and show card mount again for the rest of checkout / 3DS. */
+      function removeVisPlansAndReleaseMount() {
+        visCheckoutSessionActive = false;
+        selectedVisPlan = null;
+        hideVisPlansError();
+        const el = document.getElementById('installment-options');
+        if (el) {
+          el.innerHTML = '';
+          el.classList.remove('is-visible');
+        }
+        releaseMountPointVisSuppression();
+      }
+
+      function clearVisCheckoutUi() {
+        removeVisPlansAndReleaseMount();
+      }
+
+      function buildVisPaymentObject() {
+        if (!selectedVisPlan || selectedVisPlan.numberOfInstallments === 'FULL') {
+          return {
+            planSelectionIndicator: false,
+            vPlanId: null,
+            acceptedTAndCVersion: null
+          };
+        }
+        const tncList = selectedVisPlan.termsAndConditions || [];
+        const eng = tncList.find(t => t.languageCode === 'eng') || tncList[0];
+        const planId = selectedVisPlan.vPlanID ?? selectedVisPlan.vPlanId ?? null;
+        return {
+          planSelectionIndicator: true,
+          vPlanId: planId,
+          acceptedTAndCVersion: eng != null ? eng.version : null
+        };
+      }
+
+      /**
+       * N-Genius hosted-session payment order body: `payment` must include `currency` and `vis`
+       * (see https://docs.ngenius-payments.com/reference/web-sdk-integration — STEP 3).
+       */
+      function buildOrderPayloadForHostedSessionPayment() {
+        const currencyListEl = document.getElementById('currency-list');
+        const selectedMcpCurrency =
+          isMCPEnabled && currencyListEl && currencyListEl.value
+            ? currencyListEl.value
+            : '';
+        const paymentCurrency = selectedMcpCurrency || order.amount.currencyCode;
+
+        const payment = {
+          currency: paymentCurrency,
+          vis: buildVisPaymentObject()
+        };
+        if (enableDcc && enableDcc.value) payment.isDccSelected = isDccSelected;
+
+        return {
+          ...order,
+          amount: {
+            currencyCode: order.amount.currencyCode,
+            value: Number(order.amount.value)
+          },
+          payment
+        };
+      }
+
+      function hideVisPlansError() {
+        const el = document.getElementById('vis-plans-error');
+        if (!el) return;
+        el.textContent = '';
+        el.style.display = 'none';
+      }
+
+      function showVisPlansError(message) {
+        const el = document.getElementById('vis-plans-error');
+        if (!el) return;
+        el.textContent = message || 'Could not load installment plans. Please try again.';
+        el.style.display = 'block';
+      }
+
+      /**
+       * @returns {{ ok: true, matchedPlans: Array } | { ok: false, error: string }}
+       */
+      async function fetchMatchedVisPlans() {
+        if (typeof window.NI.handleGetVISPlans !== 'function') {
+          return { ok: true, matchedPlans: [] };
+        }
+        try {
+          const { response, error } = await window.NI.handleGetVISPlans({
+            apiKey,
+            outletRef,
+            sessionId,
+            id: 'installment-options',
+            body: {
+              action: order.action,
+              amount: {
+                currencyCode: order.amount.currencyCode,
+                value: Number(order.amount.value)
+              }
+            }
+          });
+          if (error) {
+            const msg =
+              typeof error === 'string'
+                ? error
+                : error?.message || (typeof error === 'object' ? JSON.stringify(error) : String(error));
+            console.warn('VIS plans:', error);
+            return {
+              ok: false,
+              error: msg || 'Could not load installment plans. Please try again.'
+            };
+          }
+          return { ok: true, matchedPlans: response?.matchedPlans || [] };
+        } catch (e) {
+          console.warn('VIS plans request failed:', e);
+          return {
+            ok: false,
+            error: e?.message || 'Could not load installment plans. Please try again.'
+          };
+        }
+      }
+
+      function renderVisInstallmentOptions(matchedPlans) {
+        hideVisPlansError();
+        const container = document.getElementById('installment-options');
+        container.innerHTML = '';
+        container.classList.add('is-visible');
+
+        const flexContainer = document.createElement('div');
+        flexContainer.className = 'vis-flex-container';
+
+        const installmentFrequencyMapping = {
+          MONTHLY: 'Monthly',
+          WEEKLY: 'Weekly',
+          'BI-MONTHLY': 'Bi-monthly',
+          'BI-WEEKLY': 'Bi-weekly'
+        };
+
+        const plans = [{ numberOfInstallments: 'FULL' }, ...matchedPlans];
+
+        function deselectExcept(except) {
+          flexContainer.querySelectorAll('.vis-flex-item').forEach(item => {
+            if (item === except) return;
+            item.classList.remove('selected', 'vis-expanded');
+            const cb = item.querySelector('input.vis-tnc-checkbox');
+            if (cb) cb.checked = false;
+          });
+        }
+
+        plans.forEach((visOption, index) => {
+          const flexItem = document.createElement('div');
+          flexItem.className = 'vis-flex-item';
+
+          const title = document.createElement('div');
+          const strong = document.createElement('strong');
+          strong.textContent =
+            visOption.numberOfInstallments === 'FULL'
+              ? `Pay in full (${orderDetails.formattedAmount} ${order.amount.currencyCode})`
+              : `Pay in ${visOption.numberOfInstallments}`;
+          title.appendChild(strong);
+          flexItem.appendChild(title);
+
+          if (index > 0 && visOption.costInfo) {
+            const freq =
+              installmentFrequencyMapping[visOption.installmentFrequency] ||
+              visOption.installmentFrequency ||
+              '';
+            const line1 = document.createElement('div');
+            line1.textContent = `${freq} installment (last): ${minorToMajorUnits(
+              visOption.costInfo.lastInstallment.totalAmount,
+              minimumFractionDigits
+            )} ${visOption.costInfo.currency}`;
+            flexItem.appendChild(line1);
+            if (visOption.costInfo.annualPercentageRate != null) {
+              const line2 = document.createElement('div');
+              line2.textContent = `${freq} rate: ${(visOption.costInfo.annualPercentageRate / 100).toFixed(2)}%`;
+              flexItem.appendChild(line2);
+            }
+
+            const tncWrap = document.createElement('div');
+            tncWrap.className = 'vis-tnc';
+            const tncList = visOption.termsAndConditions || [];
+            const eng = tncList.find(t => t.languageCode === 'eng') || tncList[0];
+            if (eng) {
+              const p = document.createElement('p');
+              p.textContent = eng.text;
+              p.style.marginTop = '6px';
+              tncWrap.appendChild(p);
+              if (eng.url) {
+                const a = document.createElement('a');
+                a.href = eng.url;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                a.textContent = 'Terms link';
+                a.style.display = 'inline-block';
+                a.style.marginTop = '4px';
+                tncWrap.appendChild(a);
+              }
+              const label = document.createElement('label');
+              const checkbox = document.createElement('input');
+              checkbox.type = 'checkbox';
+              checkbox.className = 'vis-tnc-checkbox';
+              label.appendChild(checkbox);
+              label.appendChild(document.createTextNode(' I accept the terms and conditions'));
+              tncWrap.appendChild(label);
+
+              checkbox.addEventListener('click', ev => ev.stopPropagation());
+              checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+                  deselectExcept(flexItem);
+                  flexItem.classList.add('selected');
+                  selectedVisPlan = visOption;
+                  enableMakePaymentButton();
+                } else {
+                  flexItem.classList.remove('selected');
+                  selectedVisPlan = null;
+                  disableMakePaymentButton();
+                }
+              });
+            }
+            flexItem.appendChild(tncWrap);
+
+            flexItem.addEventListener('click', ev => {
+              if (ev.target.closest('input, a, label')) return;
+              flexItem.classList.toggle('vis-expanded');
+            });
+          }
+
+          if (index === 0) {
+            flexItem.addEventListener('click', () => {
+              deselectExcept(flexItem);
+              flexItem.classList.add('selected');
+              selectedVisPlan = visOption;
+              enableMakePaymentButton();
+            });
+          }
+
+          flexContainer.appendChild(flexItem);
+        });
+
+        container.appendChild(flexContainer);
+      }
+
       async function createSession() {
         try {
           const response = await window.NI.generateSessionId({
@@ -830,39 +1168,89 @@
         }
       }
 
-      async function createPayment() {
+      async function runPaymentRequest() {
+        const payload = buildOrderPayloadForHostedSessionPayment();
+        removeVisPlansAndReleaseMount();
+
+        let paymentResponse;
         try {
-          await createSession();
-          if (!sessionId) return;
-
-          let payload = { ...order };
-          if (isMCPEnabled) {
-            payload = { ...payload, payment: { currency: document.getElementById('currency-list').value } };
-          }
-          if (enableDcc && enableDcc.value) {
-            payload = { ...payload, payment: { isDccSelected } };
-          }
-
-          const paymentResponse = await makePaymentApi(outletRef, sessionId, payload, realmName);
-          threeDSModal.classList.add('open');
-
-          const { status, error } = await window.NI.handlePaymentResponse(paymentResponse, {
-            mountId: '3ds_iframe', style: { width: 500, height: 500 }
-          });
+          paymentResponse = await makePaymentApi(outletRef, sessionId, payload, realmName);
+        } catch (e) {
           threeDSModal.classList.remove('open');
+          throw e;
+        }
 
-          const s = window.NI.paymentStates;
-          if ([s.THREE_DS_SUCCESS, s.AUTHORISED, s.CAPTURED, s.PURCHASED, s.PARTIALLY_AUTHORISED].includes(status)) {
-            send('PAYMENT');
-          } else if ([s.FAILED, s.THREE_DS_FAILURE].includes(status)) {
-            send('TOKENIZE_CARD_ERROR');
-          } else if (status === s.PARTIAL_AUTH_DECLINED) {
-            send('PARTIAL_AUTH_DECLINED');
-          } else if (error) {
-            send('TOKENIZE_CARD_ERROR');
+        threeDSModal.classList.add('open');
+
+        const { status, error } = await window.NI.handlePaymentResponse(paymentResponse, {
+          mountId: '3ds_iframe', style: { width: 500, height: 500 }
+        });
+        threeDSModal.classList.remove('open');
+
+        const s = window.NI.paymentStates;
+        if ([s.THREE_DS_SUCCESS, s.AUTHORISED, s.CAPTURED, s.PURCHASED, s.PARTIALLY_AUTHORISED].includes(status)) {
+          send('PAYMENT');
+        } else if ([s.FAILED, s.THREE_DS_FAILURE].includes(status)) {
+          send('TOKENIZE_CARD_ERROR');
+        } else if (status === s.PARTIAL_AUTH_DECLINED) {
+          send('PARTIAL_AUTH_DECLINED');
+        } else if (error) {
+          send('TOKENIZE_CARD_ERROR');
+        }
+      }
+
+      async function createPayment() {
+        disableMakePaymentButton();
+        try {
+          if (!visCheckoutSessionActive) {
+            await createSession();
+            if (!sessionId) {
+              enableMakePaymentButton();
+              return;
+            }
+
+            if (!(enableVis && enableVis.value)) {
+              hideVisPlansError();
+              selectedVisPlan = { numberOfInstallments: 'FULL' };
+              await runPaymentRequest();
+              return;
+            }
+
+            suppressMountPointForVisPicker();
+            hideVisPlansError();
+
+            const visPlansResult = await fetchMatchedVisPlans();
+            if (!visPlansResult.ok) {
+              releaseMountPointVisSuppression();
+              showVisPlansError(visPlansResult.error);
+              enableMakePaymentButton();
+              return;
+            }
+
+            const matchedPlans = visPlansResult.matchedPlans;
+            if (!matchedPlans.length) {
+              releaseMountPointVisSuppression();
+              selectedVisPlan = { numberOfInstallments: 'FULL' };
+              await runPaymentRequest();
+              return;
+            }
+
+            visCheckoutSessionActive = true;
+            selectedVisPlan = null;
+            renderVisInstallmentOptions(matchedPlans);
+            return;
           }
+
+          if (!selectedVisPlan) {
+            enableMakePaymentButton();
+            return;
+          }
+          await runPaymentRequest();
         } catch (e) {
           console.error('Payment error:', e.message);
+          threeDSModal.classList.remove('open');
+          clearVisCheckoutUi();
+          enableMakePaymentButton();
           send('TOKENIZE_CARD_ERROR');
         }
       }
@@ -1042,7 +1430,8 @@
           { id: 'hideLoadingBehavior', save: el => localStorage.setItem('hideLoadingBehavior', JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
           { id: 'showDigitalPayments', save: el => localStorage.setItem('showDigitalPayments', JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
           { id: 'enableDcc',           save: el => localStorage.setItem('enableDcc',           JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
-          { id: 'enableClickToPay',    save: el => localStorage.setItem('enableClickToPay',    JSON.stringify({ value: el.checked })),   restore: v => (v == null ? true : !!v.value) }
+          { id: 'enableClickToPay',    save: el => localStorage.setItem('enableClickToPay',    JSON.stringify({ value: el.checked })),   restore: v => (v == null ? true : !!v.value) },
+          { id: 'enableVis',           save: el => localStorage.setItem('enableVis',           JSON.stringify({ value: el.checked })),   restore: v => v && v.value }
         ];
         configs.forEach(({ id, save, restore }) => {
           const el  = document.getElementById(id);
