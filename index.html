@@ -382,6 +382,7 @@
         <label><input type="checkbox" id="showDigitalPayments" /> Show Digital Payments</label>
         <label><input type="checkbox" id="enableClickToPay" /> Enable Click to Pay (<code>enableClickToPay</code>)</label>
         <label><input type="checkbox" id="enableVis" /> Visa Installment Services (VIS) — fetch plans and plan picker before payment</label>
+        <label><input type="checkbox" id="enableSlice" /> Slice Installments — show installment plans after card entry</label>
       </div>
 
       <!-- Order settings -->
@@ -454,6 +455,7 @@
           <div id="mount-point"></div>
           <div id="vis-plans-error" class="vis-plans-error" role="alert" aria-live="assertive"></div>
           <div id="installment-options" aria-live="polite"></div>
+          <div id="slice-plan" aria-live="polite"></div>
           <div data-show="SHOW_PAYMENT_OPTION" style="display:none">
             <div class="currency-row" id="currency-conversion-block">
               <div style="height:20px" id="currency-input"></div>
@@ -556,6 +558,7 @@
       const isMultiplePaymentMethods = JSON.parse(localStorage.getItem('showDigitalPayments'));
       const enableClickToPayStored   = JSON.parse(localStorage.getItem('enableClickToPay'));
       const enableVis                = JSON.parse(localStorage.getItem('enableVis'));
+      const enableSlice              = JSON.parse(localStorage.getItem('enableSlice'));
       const selectedBillingAddress   = JSON.parse(localStorage.getItem('billingAddress'));
 
       const isMCPEnabled = true;
@@ -724,7 +727,9 @@
       let sessionId        = null;
       let isDccSelected    = false;
       let visCheckoutSessionActive = false;
+      let sliceCheckoutActive = false;
       let selectedVisPlan  = null;
+      let selectedSlicePlan = null;
 
 
       // ═══════════════════════════ STATE MACHINE ════════════════════════════
@@ -916,12 +921,16 @@
       function removeVisPlansAndReleaseMount() {
         visCheckoutSessionActive = false;
         selectedVisPlan = null;
+        sliceCheckoutActive = false;
+        selectedSlicePlan = null;
         hideVisPlansError();
         const el = document.getElementById('installment-options');
         if (el) {
           el.innerHTML = '';
           el.classList.remove('is-visible');
         }
+        const sliceEl = document.getElementById('slice-plan');
+        if (sliceEl) sliceEl.innerHTML = '';
         releaseMountPointVisSuppression();
       }
 
@@ -1152,6 +1161,122 @@
         container.appendChild(flexContainer);
       }
 
+      async function getSupportedSlicePlans() {
+        if (!(enableSlice && enableSlice.value)) return;
+        const container = document.getElementById('slice-plan');
+        if (!container) return;
+        if (typeof window.NI.handleGetSlicePlans !== 'function') return;
+
+        let plans;
+        try {
+          const result = await window.NI.handleGetSlicePlans({
+            apiKey,
+            outletRef,
+            sessionId,
+            id: 'slice-plan',
+            body: {
+              action: order.action,
+              amount: {
+                currencyCode: order.amount.currencyCode,
+                value: Number(order.amount.value)
+              }
+            }
+          });
+          if (result?.error) {
+            console.warn('Slice plans error:', result.error);
+            return;
+          }
+          const rawOffers =
+            result?.response?.plans ||
+            result?.response?.installmentPlans ||
+            result?.response?.offers ||
+            [];
+          // Normalise field names — API may return period/rate/fee instead of the spec names
+          plans = rawOffers.map(p => {
+            const extractAmount = v => v?.value ?? v ?? null;
+            return {
+              id: p.id ?? p.planId ?? String(p.period ?? p.numberOfInstallments ?? ''),
+              numberOfInstallments: p.numberOfInstallments ?? p.period,
+              monthlyAmount:  extractAmount(p.monthlyAmount ?? p.installmentAmount),
+              totalAmount:    extractAmount(p.totalAmount),
+              currency:       p.currency ?? null,
+              interestRate:   p.interestRate   ?? p.rate ?? null,
+              processingFee:  p.processingFee  ?? p.fee  ?? null,
+            };
+          });
+        } catch (e) {
+          console.warn('Slice plans request failed:', e);
+          return;
+        }
+
+        if (!plans.length) return;
+
+        container.innerHTML = '';
+
+        const heading = document.createElement('div');
+        heading.style.cssText = 'font-weight:700; margin:12px 0 6px; font-size:.95rem;';
+        heading.textContent = 'Slice Installment Plans';
+        container.appendChild(heading);
+
+        const flexContainer = document.createElement('div');
+        flexContainer.className = 'vis-flex-container';
+
+        const allPlans = [{ id: 'FULL', numberOfInstallments: 'FULL' }, ...plans];
+
+        function deselectAllSlice() {
+          flexContainer.querySelectorAll('.vis-flex-item').forEach(item => item.classList.remove('selected'));
+        }
+
+        allPlans.forEach((plan, index) => {
+          const flexItem = document.createElement('div');
+          flexItem.className = 'vis-flex-item';
+
+          const title = document.createElement('div');
+          const strong = document.createElement('strong');
+          strong.textContent =
+            plan.numberOfInstallments === 'FULL'
+              ? `Pay in full (${orderDetails.formattedAmount} ${order.amount.currencyCode})`
+              : `Pay in ${plan.numberOfInstallments} installments`;
+          title.appendChild(strong);
+          flexItem.appendChild(title);
+
+          if (index > 0) {
+            const currency = plan.currency || order.amount.currencyCode;
+            if (plan.monthlyAmount != null) {
+              const line = document.createElement('div');
+              line.textContent = `Monthly: ${plan.monthlyAmount} ${currency}`;
+              flexItem.appendChild(line);
+            }
+            if (plan.totalAmount != null) {
+              const line = document.createElement('div');
+              line.textContent = `Total: ${plan.totalAmount} ${currency}`;
+              flexItem.appendChild(line);
+            }
+            if (plan.interestRate != null) {
+              const line = document.createElement('div');
+              line.textContent = `Interest rate: ${plan.interestRate}%`;
+              flexItem.appendChild(line);
+            }
+            if (plan.processingFee != null) {
+              const line = document.createElement('div');
+              line.textContent = `Processing fee: ${plan.processingFee} ${currency}`;
+              flexItem.appendChild(line);
+            }
+          }
+
+          flexItem.addEventListener('click', () => {
+            deselectAllSlice();
+            flexItem.classList.add('selected');
+            selectedSlicePlan = plan;
+            enableMakePaymentButton();
+          });
+
+          flexContainer.appendChild(flexItem);
+        });
+
+        container.appendChild(flexContainer);
+      }
+
       async function createSession() {
         try {
           const response = await window.NI.generateSessionId({
@@ -1169,7 +1294,23 @@
       }
 
       async function runPaymentRequest() {
-        const payload = buildOrderPayloadForHostedSessionPayment();
+        let payload = buildOrderPayloadForHostedSessionPayment();
+
+        if (selectedSlicePlan && selectedSlicePlan.id !== 'FULL') {
+          const { vis, ...paymentWithoutVis } = payload.payment;
+          payload = {
+            ...payload,
+            payment: {
+              ...paymentWithoutVis,
+              slice: {
+                period: selectedSlicePlan.numberOfInstallments,
+                rate:   selectedSlicePlan.interestRate,
+                fee:    selectedSlicePlan.processingFee
+              }
+            }
+          };
+        }
+
         removeVisPlansAndReleaseMount();
 
         let paymentResponse;
@@ -1202,50 +1343,64 @@
       async function createPayment() {
         disableMakePaymentButton();
         try {
-          if (!visCheckoutSessionActive) {
+          if (!visCheckoutSessionActive && !sliceCheckoutActive) {
             await createSession();
             if (!sessionId) {
               enableMakePaymentButton();
               return;
             }
 
-            if (!(enableVis && enableVis.value)) {
+            if (enableSlice && enableSlice.value) {
+              suppressMountPointForVisPicker();
+              await getSupportedSlicePlans();
+              sliceCheckoutActive = true;
+              selectedSlicePlan = null;
+              return;
+            }
+
+            if (enableVis && enableVis.value) {
+              suppressMountPointForVisPicker();
               hideVisPlansError();
-              selectedVisPlan = { numberOfInstallments: 'FULL' };
-              await runPaymentRequest();
+
+              const visPlansResult = await fetchMatchedVisPlans();
+              if (!visPlansResult.ok) {
+                releaseMountPointVisSuppression();
+                showVisPlansError(visPlansResult.error);
+                enableMakePaymentButton();
+                return;
+              }
+
+              const matchedPlans = visPlansResult.matchedPlans;
+              if (!matchedPlans.length) {
+                releaseMountPointVisSuppression();
+                selectedVisPlan = { numberOfInstallments: 'FULL' };
+                await runPaymentRequest();
+                return;
+              }
+
+              visCheckoutSessionActive = true;
+              selectedVisPlan = null;
+              renderVisInstallmentOptions(matchedPlans);
               return;
             }
 
-            suppressMountPointForVisPicker();
             hideVisPlansError();
-
-            const visPlansResult = await fetchMatchedVisPlans();
-            if (!visPlansResult.ok) {
-              releaseMountPointVisSuppression();
-              showVisPlansError(visPlansResult.error);
-              enableMakePaymentButton();
-              return;
-            }
-
-            const matchedPlans = visPlansResult.matchedPlans;
-            if (!matchedPlans.length) {
-              releaseMountPointVisSuppression();
-              selectedVisPlan = { numberOfInstallments: 'FULL' };
-              await runPaymentRequest();
-              return;
-            }
-
-            visCheckoutSessionActive = true;
-            selectedVisPlan = null;
-            renderVisInstallmentOptions(matchedPlans);
+            selectedVisPlan = { numberOfInstallments: 'FULL' };
+            await runPaymentRequest();
             return;
           }
 
-          if (!selectedVisPlan) {
-            enableMakePaymentButton();
+          if (visCheckoutSessionActive) {
+            if (!selectedVisPlan) { enableMakePaymentButton(); return; }
+            await runPaymentRequest();
             return;
           }
-          await runPaymentRequest();
+
+          if (sliceCheckoutActive) {
+            if (!selectedSlicePlan) { enableMakePaymentButton(); return; }
+            await runPaymentRequest();
+            return;
+          }
         } catch (e) {
           console.error('Payment error:', e.message);
           threeDSModal.classList.remove('open');
@@ -1431,7 +1586,8 @@
           { id: 'showDigitalPayments', save: el => localStorage.setItem('showDigitalPayments', JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
           { id: 'enableDcc',           save: el => localStorage.setItem('enableDcc',           JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
           { id: 'enableClickToPay',    save: el => localStorage.setItem('enableClickToPay',    JSON.stringify({ value: el.checked })),   restore: v => (v == null ? true : !!v.value) },
-          { id: 'enableVis',           save: el => localStorage.setItem('enableVis',           JSON.stringify({ value: el.checked })),   restore: v => v && v.value }
+          { id: 'enableVis',           save: el => localStorage.setItem('enableVis',           JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
+          { id: 'enableSlice',         save: el => localStorage.setItem('enableSlice',         JSON.stringify({ value: el.checked })),   restore: v => v && v.value }
         ];
         configs.forEach(({ id, save, restore }) => {
           const el  = document.getElementById(id);
