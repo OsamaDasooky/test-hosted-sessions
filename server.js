@@ -29,6 +29,11 @@ app.use(express.static(__dirname));
 
 // ── Env → URL mapping (used when request includes env from setup page) ────────
 const ENV_URLS = {
+  production: {
+    identityUrl: 'https://api-gateway.ngenius-payments.com/identity/auth/access-token',
+    transactionsUrl: 'https://api-gateway.ngenius-payments.com/transactions/',
+    sdkUrl: 'https://paypage.ngenius-payments.com'
+  },
   sandbox: {
     identityUrl: 'https://api-gateway.sandbox.ngenius-payments.com/identity/auth/access-token',
     transactionsUrl: 'https://api-gateway.sandbox.ngenius-payments.com/transactions/',

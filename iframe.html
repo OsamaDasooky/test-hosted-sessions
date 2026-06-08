@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hosted Payment Page</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #1f2937;
+    }
+
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header.topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .topbar h1 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0;
+      letter-spacing: 0.2px;
+    }
+
+    .topbar .url {
+      font-size: 12px;
+      opacity: 0.85;
+      max-width: 60vw;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .controls button,
+    .controls a {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s ease, transform 0.05s ease;
+    }
+
+    .controls button:hover,
+    .controls a:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .controls button:active {
+      transform: scale(0.97);
+    }
+
+    main.frame-wrap {
+      flex: 1;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+    }
+
+    .frame-card {
+      flex: 1;
+      max-width: 1200px;
+      background: #fff;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .loader {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      z-index: 2;
+      transition: opacity 0.25s ease, visibility 0.25s ease;
+    }
+
+    .loader.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .spinner {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 3px solid #e5e7eb;
+      border-top-color: #667eea;
+      animation: spin 0.9s linear infinite;
+    }
+
+    .loader span {
+      font-size: 14px;
+      color: #4b5563;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    iframe {
+      flex: 1;
+      width: 100%;
+      border: 0;
+      display: block;
+      min-height: 600px;
+      background: #fff;
+    }
+
+    footer.statusbar {
+      padding: 10px 24px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.85);
+      text-align: center;
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    @media (max-width: 640px) {
+      header.topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
+
+      .topbar .url {
+        max-width: 100%;
+      }
+
+      main.frame-wrap {
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div>
+        <h1>Hosted Payment Page</h1>
+        <div class="url" id="urlLabel"></div>
+      </div>
+      <div class="controls">
+        <button id="reloadBtn" type="button" title="Reload iframe">Reload</button>
+        <a id="openBtn" href="#" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+      </div>
+    </header>
+
+    <main class="frame-wrap">
+      <div class="frame-card">
+        <div class="loader" id="loader">
+          <div class="spinner" aria-hidden="true"></div>
+          <span>Loading payment page…</span>
+        </div>
+        <iframe
+          id="paymentFrame"
+          src="https://paypage-dev.platform.network.ae/v2?code=4651c7c739aa59fb"
+          title="Hosted Payment Page"
+          allow="payment *; clipboard-read; clipboard-write"
+          referrerpolicy="no-referrer-when-downgrade"
+        ></iframe>
+      </div>
+    </main>
+
+    <footer class="statusbar" id="statusbar">Initializing…</footer>
+  </div>
+
+  <script>
+    (function () {
+      const iframe = document.getElementById('paymentFrame');
+      const loader = document.getElementById('loader');
+      const status = document.getElementById('statusbar');
+      const urlLabel = document.getElementById('urlLabel');
+      const reloadBtn = document.getElementById('reloadBtn');
+      const openBtn = document.getElementById('openBtn');
+
+      const targetUrl = iframe.getAttribute('src');
+      urlLabel.textContent = targetUrl;
+      openBtn.href = targetUrl;
+
+      iframe.addEventListener('load', function () {
+        loader.classList.add('hidden');
+        status.textContent = 'Loaded · ' + new Date().toLocaleTimeString();
+      });
+
+      reloadBtn.addEventListener('click', function () {
+        loader.classList.remove('hidden');
+        status.textContent = 'Reloading…';
+        iframe.src = targetUrl;
+      });
+
+      window.addEventListener('message', function (event) {
+        try {
+          const origin = event.origin || '(unknown)';
+          const data =
+            typeof event.data === 'string'
+              ? event.data
+              : JSON.stringify(event.data);
+          status.textContent =
+            'Message from ' + origin + ' · ' + (data.length > 120 ? data.slice(0, 120) + '…' : data);
+        } catch (e) {
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

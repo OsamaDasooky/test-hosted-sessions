@@ -110,6 +110,7 @@
           <label for="env">Environment</label>
           <select id="env" name="env">
             <option value="sandbox">Sandbox</option>
+            <option value="production">Production</option>
             <option value="dev">Dev</option>
           </select>
         </div>
@@ -153,8 +154,8 @@
         errEl.classList.add('visible');
         return;
       }
-      if (env !== 'sandbox' && env !== 'dev') {
-        errEl.textContent = 'Please select Environment (Sandbox or Dev).';
+      if (env !== 'sandbox' && env !== 'dev' && env !== 'production') {
+        errEl.textContent = 'Please select Environment (Sandbox, Production or Dev).';
         errEl.classList.add('visible');
         return;
       }

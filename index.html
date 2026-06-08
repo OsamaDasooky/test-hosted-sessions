@@ -512,13 +512,15 @@
         if (res.ok) {
           const envConfig = await res.json();
           if (envConfig[config.env] && envConfig[config.env].sdkUrl) {
-            // sdkUrl = envConfig[config.env].sdkUrl;
+            sdkUrl = envConfig[config.env].sdkUrl;
           }
         }
       } catch (_) {}
       const scriptSrc = sdkUrl.replace(/\/$/, '') + '/hosted-sessions/sdk.js';
 
       function loadSDK() {
+        console.log(scriptSrc);
+        
         const script = document.createElement('script');
         script.setAttribute('id', 'hosted-sessions-sdk');
         script.setAttribute('src', scriptSrc);
