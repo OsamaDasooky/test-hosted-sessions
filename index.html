@@ -728,6 +728,8 @@
       let current          = stateMachine.initial;
       let sessionId        = null;
       let isDccSelected    = false;
+      let dccMonexId       = null;
+      let dccGlobalBlueId  = null;
       let visCheckoutSessionActive = false;
       let sliceCheckoutActive = false;
       let selectedVisPlan  = null;
@@ -974,7 +976,15 @@
           currency: paymentCurrency,
           vis: buildVisPaymentObject()
         };
-        if (enableDcc && enableDcc.value) payment.isDccSelected = isDccSelected;
+        if (enableDcc && enableDcc.value) {
+          payment.isDccSelected = isDccSelected;
+          // Forward the provider's rate-lock reference when the customer chose to
+          // pay in their card currency. Backend uses whichever id is present.
+          if (isDccSelected) {
+            if (dccMonexId)      payment.monexId      = dccMonexId;
+            if (dccGlobalBlueId) payment.globalBlueId = dccGlobalBlueId;
+          }
+        }
 
         return {
           ...order,
@@ -1447,7 +1457,11 @@
             threeDSModal.classList.add('open');
             const dccFlow = await window.NI.handleDCCFlow({ config: { mountId: '3ds_iframe' }, dccData });
             threeDSModal.classList.remove('open');
-            isDccSelected = dccFlow?.isDccSelected || false;
+            isDccSelected   = dccFlow?.isDccSelected || false;
+            // Capture the rate-lock reference for whichever DCC provider responded
+            // (Monex returns monexId, Global Blue returns globalBlueId).
+            dccMonexId      = dccFlow?.monexId || null;
+            dccGlobalBlueId = dccFlow?.globalBlueId || null;
           },
           ctpConfig: parseCtpConfigFromTextarea(),
           enableClickToPay: clickToPayEnabled,
