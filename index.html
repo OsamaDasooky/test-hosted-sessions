@@ -153,7 +153,8 @@
       outline: none; border-color: #253cfc;
     }
     .field-group textarea.ctp-config-textarea {
-      min-height: 220px;
+      height: 120px;
+      width: 100%;
       padding: 10px 12px;
       border: 1px solid #ddd;
       border-radius: 8px;
@@ -181,17 +182,41 @@
       border-top: 1px solid #e8ecff;
       padding-top: 14px;
       margin-top: 4px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
     }
     .v2-config-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
-    .v2-config-section h3 {
+    .v2-config-section-title {
       font-size: .82rem;
       color: #555;
       text-transform: uppercase;
       letter-spacing: .04em;
       margin: 0;
+    }
+    .v2-config-section > summary {
+      font-size: .82rem;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin: 0;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+    .v2-config-section > summary::-webkit-details-marker { display: none; }
+    .v2-config-section > summary::after {
+      content: '▸';
+      font-size: .7rem;
+      color: #aaa;
+      transition: transform .15s;
+    }
+    .v2-config-section[open] > summary::after { transform: rotate(90deg); }
+    .v2-config-section-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 12px;
     }
     .method-grid {
       display: grid;
@@ -424,6 +449,12 @@
     <!-- ════════ LEFT PANEL ════════ -->
     <div class="left-panel">
 
+      <!-- Apply config bar -->
+      <div class="card" id="apply-now-bar" style="position:sticky;top:80px;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-direction:row;">
+        <div id="apply-now-status" style="font-size:.9rem;color:#666;">No unsaved changes</div>
+        <button type="button" id="apply-now-btn" class="checkoutButton" style="margin-top:0;width:auto;padding:0 20px;" disabled>Apply new config</button>
+      </div>
+
       <!-- Cart -->
       <div class="card">
         <h2>🛒 Shopping Cart</h2>
@@ -516,7 +547,7 @@
       <!-- CTP config passed to mountCardInput -->
       <div class="card" style="display:flex;flex-direction:column;gap:10px;">
         <h2>CTP config (<code>ctpConfig</code>)</h2>
-        <p class="ctp-config-hint">Edit as JSON. Invalid JSON is ignored at mount (<code>{}</code> used). <code>orderDetails</code> and <code>email</code> update from Order Settings when you leave those fields. Reload after other edits so the payment form mounts again.</p>
+        <p class="ctp-config-hint">Passed as <code>ctpConfig</code>. Invalid JSON falls back to <code>{}</code>. <code>orderDetails</code>/<code>email</code> sync from Order Settings automatically.</p>
         <div class="field-group">
           <label for="ctp-config-json">JSON</label>
           <textarea id="ctp-config-json" class="ctp-config-textarea" spellcheck="false" rows="14" autocomplete="off"></textarea>
@@ -526,82 +557,86 @@
       <!-- v2 SDK config (payment methods + branding) — only when version: 2 -->
       <div class="card checkbox-section" id="v2-config-panel" style="flex-direction:column;gap:14px;">
         <h2>v2 SDK config</h2>
-        <p class="v2-muted">Applies only when <strong>Use new design</strong> is enabled. Language (en / ar / fr) is set from the navbar selector and reloads the page. Changes below reload the payment iframe.</p>
+        <p class="v2-muted">Requires <strong>Use new design</strong>. Changes stage here — click <strong>Apply new config</strong> above to apply.</p>
 
         <div class="v2-config-section">
-          <h3>Payment methods</h3>
-          <div class="field-group">
-            <label for="v2-preferred-method">Preferred payment method (<code>preferredPaymentMethod</code>)</label>
-            <select id="v2-preferred-method">
-              <option value="">— None (user selects) —</option>
-              <option value="GOOGLE_PAY">Google Pay</option>
-              <option value="APPLE_PAY">Apple Pay</option>
-              <option value="CARD">Card</option>
-              <option value="VISA_CLICK_TO_PAY">Click to Pay</option>
-              <option value="SAMSUNG_PAY">Samsung Pay</option>
-              <option value="AANI">Aani</option>
-              <option value="QPAY">QPay</option>
-            </select>
-          </div>
-          <div class="field-group">
-            <label for="v2-list-mode">Method list mode</label>
-            <select id="v2-list-mode">
-              <option value="default">Default SDK order (all available)</option>
-              <option value="order">Custom order (<code>paymentMethodOrder</code>)</option>
-              <option value="offerOnly">Offer only (<code>offerOnly</code> — whitelist + order)</option>
-            </select>
-          </div>
-          <p class="v2-muted" id="v2-list-mode-hint">Shows every method the outlet supports, in the SDK default order.</p>
-          <div class="field-group" id="v2-method-order-wrap" style="display:none;">
-            <label>Method order / offer list (top to bottom)</label>
-            <div class="v2-order-list" id="v2-method-order-list"></div>
-            <p class="v2-muted" id="v2-method-order-saved-hint" style="display:none;">Saved. Click Apply to update the payment form.</p>
-            <button type="button" id="v2-apply-methods-btn" class="checkoutButton" style="margin-top:8px;height:38px;font-size:.88rem;">Apply payment methods</button>
+          <div class="v2-config-section-title">Payment methods</div>
+          <div class="v2-config-section-body">
+            <div class="field-group">
+              <label for="v2-preferred-method">Preferred payment method (<code>preferredPaymentMethod</code>)</label>
+              <select id="v2-preferred-method">
+                <option value="">— None (user selects) —</option>
+                <option value="GOOGLE_PAY">Google Pay</option>
+                <option value="APPLE_PAY">Apple Pay</option>
+                <option value="CARD">Card</option>
+                <option value="VISA_CLICK_TO_PAY">Click to Pay</option>
+                <option value="SAMSUNG_PAY">Samsung Pay</option>
+                <option value="AANI">Aani</option>
+                <option value="QPAY">QPay</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label for="v2-list-mode">Method list mode</label>
+              <select id="v2-list-mode">
+                <option value="default">Default SDK order (all available)</option>
+                <option value="order">Custom order (<code>paymentMethodOrder</code>)</option>
+                <option value="offerOnly">Offer only (<code>offerOnly</code> — whitelist + order)</option>
+              </select>
+            </div>
+            <p class="v2-muted" id="v2-list-mode-hint">Shows all supported methods, default order.</p>
+            <div class="field-group" id="v2-method-order-wrap" style="display:none;">
+              <label for="v2-method-order-input">Method order / offer list</label>
+              <textarea id="v2-method-order-input" class="ctp-config-textarea" spellcheck="false" rows="3" style="min-height:64px;" placeholder="CARD, APPLE_PAY, GOOGLE_PAY"></textarea>
+              <p class="v2-muted">Available: CARD, APPLE_PAY, GOOGLE_PAY, VISA_CLICK_TO_PAY, SAMSUNG_PAY, AANI, QPAY</p>
+              <p class="v2-muted" id="v2-method-order-saved-hint" style="display:none;">Saved. Click Apply new config to update.</p>
+            </div>
           </div>
         </div>
 
-        <div class="v2-config-section">
-          <h3>Branding &amp; theme (<code>style</code> → v2 theme)</h3>
-          <p class="v2-muted">Quick picks update the JSON below. Advanced overrides: edit JSON directly (colors, radii, fonts, spacing, shadows).</p>
-          <div class="v2-brand-row">
-            <div class="field-group">
-              <label for="v2-color-primary">Primary color</label>
-              <input type="color" id="v2-color-primary" value="#2563EB" />
+        <details class="v2-config-section">
+          <summary>Branding &amp; theme (<code>style</code> → v2 theme)</summary>
+          <div class="v2-config-section-body">
+            <p class="v2-muted">Pickers update the JSON below; edit JSON directly for more options.</p>
+            <div class="v2-brand-row">
+              <div class="field-group">
+                <label for="v2-color-primary">Primary color</label>
+                <input type="color" id="v2-color-primary" value="#2563EB" />
+              </div>
+              <div class="field-group">
+                <label for="v2-color-accent">Accent color</label>
+                <input type="color" id="v2-color-accent" value="#D4A93A" />
+              </div>
+              <div class="field-group">
+                <label for="v2-color-page">Page backdrop</label>
+                <input type="color" id="v2-color-page" value="#DFE4EC" />
+              </div>
+              <div class="field-group">
+                <label for="v2-color-selected">Selected border</label>
+                <input type="color" id="v2-color-selected" value="#2563EB" />
+              </div>
             </div>
             <div class="field-group">
-              <label for="v2-color-accent">Accent color</label>
-              <input type="color" id="v2-color-accent" value="#D4A93A" />
+              <label for="v2-font-family">Font family</label>
+              <input type="text" id="v2-font-family" placeholder="Inter, sans-serif" />
             </div>
             <div class="field-group">
-              <label for="v2-color-page">Page backdrop</label>
-              <input type="color" id="v2-color-page" value="#DFE4EC" />
+              <label for="v2-font-url">Font URL (Google Fonts CSS, optional)</label>
+              <input type="text" id="v2-font-url" placeholder="https://fonts.googleapis.com/css2?family=Inter..." />
             </div>
             <div class="field-group">
-              <label for="v2-color-selected">Selected border</label>
-              <input type="color" id="v2-color-selected" value="#2563EB" />
+              <label for="v2-radius-container">Container radius</label>
+              <input type="text" id="v2-radius-container" placeholder="20px" />
+            </div>
+            <div class="field-group">
+              <label for="v2-radius-input">Input radius</label>
+              <input type="text" id="v2-radius-input" placeholder="12px" />
+            </div>
+            <div class="field-group">
+              <label for="v2-branding-json">Theme JSON (merged into <code>mountCardInput({ style })</code>)</label>
+              <textarea id="v2-branding-json" class="ctp-config-textarea" spellcheck="false" rows="12" autocomplete="off"></textarea>
             </div>
           </div>
-          <div class="field-group">
-            <label for="v2-font-family">Font family</label>
-            <input type="text" id="v2-font-family" placeholder="Inter, sans-serif" />
-          </div>
-          <div class="field-group">
-            <label for="v2-font-url">Font URL (Google Fonts CSS, optional)</label>
-            <input type="text" id="v2-font-url" placeholder="https://fonts.googleapis.com/css2?family=Inter..." />
-          </div>
-          <div class="field-group">
-            <label for="v2-radius-container">Container radius</label>
-            <input type="text" id="v2-radius-container" placeholder="20px" />
-          </div>
-          <div class="field-group">
-            <label for="v2-radius-input">Input radius</label>
-            <input type="text" id="v2-radius-input" placeholder="12px" />
-          </div>
-          <div class="field-group">
-            <label for="v2-branding-json">Theme JSON (merged into <code>mountCardInput({ style })</code>)</label>
-            <textarea id="v2-branding-json" class="ctp-config-textarea" spellcheck="false" rows="12" autocomplete="off"></textarea>
-          </div>
-        </div>
+        </details>
       </div>
 
     </div><!-- end left-panel -->
@@ -746,6 +781,20 @@
 
       const isMCPEnabled = true;
 
+      // ── Staged config / Apply now ────────────────────────────────────────
+      let hasPendingChanges = false;
+      function markConfigDirty() {
+        hasPendingChanges = true;
+        const btn = document.getElementById('apply-now-btn');
+        const status = document.getElementById('apply-now-status');
+        if (btn) btn.disabled = false;
+        if (status) status.textContent = 'You have unsaved changes';
+      }
+      function applyPendingChanges() {
+        if (newDesignEnabled) saveV2ConfigFromDom();
+        location.reload();
+      }
+
       // ── Utility ───────────────────────────────────────────────────────────
       function minorToMajorUnits(value, minorUnit = 2) {
         return (value / 10 ** minorUnit).toFixed(minorUnit);
@@ -833,7 +882,6 @@
         preferredPaymentMethod: '',
         listMode: 'default',
         methodOrder: V2_PAYMENT_METHODS.map(m => m.key),
-        checkedMethods: V2_PAYMENT_METHODS.map(m => m.key),
         branding: defaultV2BrandingTheme
       };
 
@@ -852,9 +900,6 @@
             listMode: parsed.listMode || 'default',
             methodOrder: Array.isArray(parsed.methodOrder) && parsed.methodOrder.length
               ? parsed.methodOrder
-              : V2_PAYMENT_METHODS.map(m => m.key),
-            checkedMethods: Array.isArray(parsed.checkedMethods)
-              ? parsed.checkedMethods
               : V2_PAYMENT_METHODS.map(m => m.key),
             branding: parsed.branding && typeof parsed.branding === 'object'
               ? parsed.branding
@@ -1723,29 +1768,26 @@
         if (!el) return;
         const saved = localStorage.getItem(CTP_CONFIG_LS_KEY);
         el.value = saved != null ? saved : DEFAULT_CTP_CONFIG_JSON;
-        el.addEventListener('focusout', () => localStorage.setItem(CTP_CONFIG_LS_KEY, el.value));
+        el.addEventListener('focusout', () => {
+          localStorage.setItem(CTP_CONFIG_LS_KEY, el.value);
+          markConfigDirty();
+        });
       }
 
-      function getMethodKeysInDomOrder() {
-        const list = document.getElementById('v2-method-order-list');
-        if (!list) return [];
-        return Array.from(list.querySelectorAll('input[type="checkbox"]')).map(cb => cb.value);
-      }
-
-      function getCheckedMethodsFromDom() {
-        const list = document.getElementById('v2-method-order-list');
-        if (!list) return [];
-        return Array.from(list.querySelectorAll('input[type="checkbox"]'))
-          .filter(cb => cb.checked)
-          .map(cb => cb.value);
+      function getMethodKeysFromInput() {
+        const el = document.getElementById('v2-method-order-input');
+        if (!el) return [];
+        const validKeys = new Set(V2_PAYMENT_METHODS.map(m => m.key));
+        return el.value.split(/[,\n]/)
+          .map(s => s.trim().toUpperCase())
+          .filter(s => validKeys.has(s));
       }
 
       function saveV2ConfigFromDom() {
         const cfg = {
           preferredPaymentMethod: (document.getElementById('v2-preferred-method') || {}).value || '',
           listMode: (document.getElementById('v2-list-mode') || {}).value || 'default',
-          methodOrder: getMethodKeysInDomOrder(),
-          checkedMethods: getCheckedMethodsFromDom(),
+          methodOrder: getMethodKeysFromInput(),
           branding: parseV2BrandingFromTextarea()
         };
         localStorage.setItem(V2_CONFIG_LS_KEY, JSON.stringify(cfg, null, 2));
@@ -1817,48 +1859,29 @@
         if (wrap) wrap.style.display = mode === 'default' ? 'none' : 'block';
         if (hint) {
           if (mode === 'default') {
-            hint.textContent = 'Shows every method the outlet supports, in the SDK default order.';
+            hint.textContent = 'Shows all supported methods, default order.';
           } else if (mode === 'order') {
-            hint.textContent = 'Check methods and order in the list below. Changes save automatically — click Apply payment methods to refresh the iframe.';
+            hint.textContent = 'Type methods in display order.';
           } else {
-            hint.textContent = 'Check methods to include (in list order). Changes save automatically — click Apply payment methods to refresh the iframe.';
+            hint.textContent = 'Type methods to include, in order.';
           }
         }
       }
 
       function markV2MethodOrderDirty() {
         saveV2ConfigFromDom();
+        markConfigDirty();
         const hint = document.getElementById('v2-method-order-saved-hint');
         if (hint) hint.style.display = 'block';
       }
 
-      function buildV2MethodOrderList(savedOrder, listMode, checkedMethods) {
-        const list = document.getElementById('v2-method-order-list');
-        if (!list) return;
-        list.innerHTML = '';
-        const orderedKeys = savedOrder.length ? savedOrder : V2_PAYMENT_METHODS.map(m => m.key);
-        const extras = V2_PAYMENT_METHODS.map(m => m.key).filter(k => !orderedKeys.includes(k));
-        const allKeys = [...orderedKeys, ...extras];
-        const checkedSet =
-          listMode === 'default'
-            ? new Set(allKeys)
-            : new Set(
-                Array.isArray(checkedMethods) && checkedMethods.length
-                  ? checkedMethods
-                  : allKeys
-              );
-        allKeys.forEach((key, idx) => {
-          const meta = V2_PAYMENT_METHODS.find(m => m.key === key) || { key, label: key };
-          const row = document.createElement('label');
-          const cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.value = key;
-          cb.checked = checkedSet.has(key);
-          cb.addEventListener('change', markV2MethodOrderDirty);
-          row.appendChild(cb);
-          row.appendChild(document.createTextNode(`${idx + 1}. ${meta.label} (${key})`));
-          list.appendChild(row);
-        });
+      function populateV2MethodOrderInput(savedOrder) {
+        const el = document.getElementById('v2-method-order-input');
+        if (!el) return;
+        const keys = Array.isArray(savedOrder) && savedOrder.length
+          ? savedOrder
+          : V2_PAYMENT_METHODS.map(m => m.key);
+        el.value = keys.join(', ');
       }
 
       function initV2ConfigPanel() {
@@ -1880,11 +1903,7 @@
         }
 
         syncV2BrandingPickersFromJson();
-        buildV2MethodOrderList(
-          saved.methodOrder || [],
-          saved.listMode || 'default',
-          saved.checkedMethods
-        );
+        populateV2MethodOrderInput(saved.methodOrder);
         updateV2ListModeUi();
         const savedHint = document.getElementById('v2-method-order-saved-hint');
         if (savedHint) savedHint.style.display = 'none';
@@ -1892,30 +1911,19 @@
         if (preferredEl) {
           preferredEl.addEventListener('change', () => {
             saveV2ConfigFromDom();
-            location.reload();
+            markConfigDirty();
           });
         }
         if (modeEl) {
           modeEl.addEventListener('change', () => {
             updateV2ListModeUi();
-            const prevChecked = getCheckedMethodsFromDom();
-            saveV2ConfigFromDom();
-            const saved = parseV2ConfigFromStorage();
-            buildV2MethodOrderList(
-              saved.methodOrder || [],
-              modeEl.value,
-              modeEl.value === 'default' ? saved.checkedMethods : prevChecked
-            );
             markV2MethodOrderDirty();
           });
         }
 
-        const applyMethodsBtn = document.getElementById('v2-apply-methods-btn');
-        if (applyMethodsBtn) {
-          applyMethodsBtn.addEventListener('click', () => {
-            saveV2ConfigFromDom();
-            location.reload();
-          });
+        const methodOrderInput = document.getElementById('v2-method-order-input');
+        if (methodOrderInput) {
+          methodOrderInput.addEventListener('focusout', markV2MethodOrderDirty);
         }
 
         ['v2-color-primary', 'v2-color-accent', 'v2-color-page', 'v2-color-selected',
@@ -1926,7 +1934,7 @@
           el.addEventListener('change', () => {
             applyV2BrandingPickersToJson();
             saveV2ConfigFromDom();
-            location.reload();
+            markConfigDirty();
           });
           el.addEventListener('focusout', () => {
             applyV2BrandingPickersToJson();
@@ -1938,7 +1946,7 @@
           jsonEl.addEventListener('focusout', () => {
             syncV2BrandingPickersFromJson();
             saveV2ConfigFromDom();
-            location.reload();
+            markConfigDirty();
           });
         }
       }
@@ -1950,14 +1958,10 @@
         if (cfg.preferredPaymentMethod) {
           opts.preferredPaymentMethod = cfg.preferredPaymentMethod;
         }
-        const checkedFromDom = getCheckedMethodsFromDom();
-        const checkedList = checkedFromDom.length
-          ? checkedFromDom
-          : (cfg.checkedMethods || []);
-        if (cfg.listMode === 'offerOnly' && checkedList.length) {
-          opts.offerOnly = checkedList;
-        } else if (cfg.listMode === 'order' && checkedList.length) {
-          opts.paymentMethodOrder = checkedList;
+        if (cfg.listMode === 'offerOnly' && cfg.methodOrder.length) {
+          opts.offerOnly = cfg.methodOrder;
+        } else if (cfg.listMode === 'order' && cfg.methodOrder.length) {
+          opts.paymentMethodOrder = cfg.methodOrder;
         }
         return opts;
       }
@@ -2022,7 +2026,7 @@
             const code = labelToCode[text] || 'en';
             order.language = code;
             localStorage.setItem('selectedLanguage', code);
-            window.location.reload();
+            markConfigDirty();
           });
         });
 
@@ -2036,7 +2040,7 @@
           opt.addEventListener('click', () => {
             realmName = opt.value;
             localStorage.setItem('realmName', JSON.stringify(realmName));
-            location.reload();
+            markConfigDirty();
           });
         });
       }
@@ -2062,7 +2066,7 @@
             else if (v === '3') { billing.firstName = '';    billing.lastName = 'Doe'; }
             else                { billing.firstName = '';    billing.lastName = ''; }
             localStorage.setItem('billingAddress', JSON.stringify(billing));
-            location.reload();
+            markConfigDirty();
           });
         });
       }
@@ -2070,7 +2074,7 @@
       function initOrderType() {
         const el = document.getElementById('orderType');
         el.value = selectedOrderTypeFromLocalStorage();
-        el.addEventListener('change', () => { localStorage.setItem('orderType', el.value); location.reload(); });
+        el.addEventListener('change', () => { localStorage.setItem('orderType', el.value); markConfigDirty(); });
       }
 
       function initOrderAmount() {
@@ -2079,6 +2083,7 @@
         el.addEventListener('focusout', () => {
           localStorage.setItem('amount', el.value);
           syncCtpConfigFieldsFromOrderInputs();
+          markConfigDirty();
         });
       }
 
@@ -2088,13 +2093,17 @@
         el.addEventListener('focusout', () => {
           localStorage.setItem('currency', el.value);
           syncCtpConfigFieldsFromOrderInputs();
+          markConfigDirty();
         });
       }
 
       function initRealmNameInput() {
         const el = document.getElementById('realmName');
         el.value = realmName;
-        el.addEventListener('focusout', () => localStorage.setItem('realmName', JSON.stringify(el.value)));
+        el.addEventListener('focusout', () => {
+          localStorage.setItem('realmName', JSON.stringify(el.value));
+          markConfigDirty();
+        });
       }
       function initEmailInput() {
         const el = document.getElementById('emailAddress');
@@ -2102,13 +2111,17 @@
         el.addEventListener('focusout', () => {
           localStorage.setItem('emailAddress', el.value);
           syncCtpConfigFieldsFromOrderInputs();
+          markConfigDirty();
         });
       }
 
       function initPhoneInput() {
         const el = document.getElementById('phoneNumber');
         el.value = phoneNumber || '';
-        el.addEventListener('focusout', () => localStorage.setItem('phoneNumber', el.value));
+        el.addEventListener('focusout', () => {
+          localStorage.setItem('phoneNumber', el.value);
+          markConfigDirty();
+        });
       }
 
       function initCheckboxes() {
@@ -2127,7 +2140,7 @@
           const el  = document.getElementById(id);
           const raw = JSON.parse(localStorage.getItem(id));
           el.checked = !!restore(raw);
-          el.addEventListener('change', () => { save(el); location.reload(); });
+          el.addEventListener('change', () => { save(el); markConfigDirty(); });
         });
       }
 
@@ -2177,6 +2190,7 @@
         mountCardInput();
 
         document.getElementById('payment-btn').addEventListener('click', createPayment);
+        document.getElementById('apply-now-btn').addEventListener('click', applyPendingChanges);
       }
 
       boot();
