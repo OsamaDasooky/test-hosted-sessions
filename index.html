@@ -174,13 +174,78 @@
       line-height: 1.4;
     }
 
+    /* ── v2 SDK config (visible when new design enabled) ── */
+    #v2-config-panel { display: none; }
+    body.new-design #v2-config-panel { display: flex; }
+    .v2-config-section {
+      border-top: 1px solid #e8ecff;
+      padding-top: 14px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .v2-config-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+    .v2-config-section h3 {
+      font-size: .82rem;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin: 0;
+    }
+    .method-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 6px 10px;
+    }
+    .method-grid label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: .82rem;
+      cursor: pointer;
+      margin: 0;
+    }
+    .v2-order-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 8px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fafbff;
+    }
+    .v2-order-list label { margin-top: 0; font-size: .82rem; }
+    .v2-muted {
+      font-size: .78rem;
+      color: #888;
+      line-height: 1.35;
+      margin: 0;
+    }
+    .v2-brand-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 600px) { .v2-brand-row { grid-template-columns: 1fr; } }
+    .v2-brand-row input[type="color"] {
+      width: 100%;
+      height: 36px;
+      padding: 2px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #fff;
+    }
+
     /* ── 3DS Modal ── */
     .modal {
       display: none; position: fixed; z-index: 200;
       inset: 0; background: rgba(0,0,0,.5);
       justify-content: center; align-items: center;
     }
-    .modal.open { display: flex; }
     .modal.open { display: flex; }
     /* While VIS plan picker is open: hide hosted-session card mount only */
     body.vis-suppress-mount #mount-point {
@@ -200,11 +265,42 @@
       pointer-events: none !important;
     }
     .modal-content {
-      background: #fff; border-radius: 12px; height: 65%; width: 35%;
-      padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+      background: #fff;
+      border-radius: 12px;
+      width: min(90vw, 480px);
+      height: min(80vh, 620px);
+      padding: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    }
+    .noBackground {
+      background: none;
+      box-shadow: none;
     }
     .modal-content iframe { border: none; }
     .modal-content .threeDS_iframe { height: 100%; }
+
+    /* ── Bottom sheet on mobile ── */
+    @media screen and (max-width: 600px) {
+      .modal {
+        align-items: flex-end;
+      }
+      .modal-content {
+        width: 100%;
+        height: 45svh;
+        border-radius: 16px 16px 0 0;
+        padding: 12px 16px 24px;
+        box-shadow: 0 -4px 24px rgba(0,0,0,.18);
+      }
+      .modal-content::before {
+        content: '';
+        display: block;
+        width: 40px;
+        height: 4px;
+        background: #d1d5db;
+        border-radius: 2px;
+        margin: 0 auto 12px;
+      }
+    }
 
     /* ── Payment panel (right) ── */
     .paymentContainer {
@@ -229,6 +325,8 @@
     [data-show='PARTIAL_AUTH_DECLINED']{ color: #e67e22; font-weight: 700; padding: 20px 0; }
 
     #mount-point { height: 450px; }
+    body.new-design #mount-point { height: 500px; }
+    body.new-design .modal-content { background: none; box-shadow: none; padding: 0; }
 
     /* ── Make Payment button ── */
     .checkoutButton {
@@ -381,6 +479,7 @@
         <label><input type="checkbox" id="hideLoadingBehavior" /> Hide loading behavior</label>
         <label><input type="checkbox" id="showDigitalPayments" /> Show Digital Payments</label>
         <label><input type="checkbox" id="enableClickToPay" /> Enable Click to Pay (<code>enableClickToPay</code>)</label>
+        <label><input type="checkbox" id="useNewDesign" /> Use new design (<code>version: 2</code>) — unlocks v2 SDK config panel below</label>
         <label><input type="checkbox" id="enableVis" /> Visa Installment Services (VIS) — fetch plans and plan picker before payment</label>
         <label><input type="checkbox" id="enableSlice" /> Slice Installments — show installment plans after card entry</label>
       </div>
@@ -421,6 +520,87 @@
         <div class="field-group">
           <label for="ctp-config-json">JSON</label>
           <textarea id="ctp-config-json" class="ctp-config-textarea" spellcheck="false" rows="14" autocomplete="off"></textarea>
+        </div>
+      </div>
+
+      <!-- v2 SDK config (payment methods + branding) — only when version: 2 -->
+      <div class="card checkbox-section" id="v2-config-panel" style="flex-direction:column;gap:14px;">
+        <h2>v2 SDK config</h2>
+        <p class="v2-muted">Applies only when <strong>Use new design</strong> is enabled. Language (en / ar / fr) is set from the navbar selector and reloads the page. Changes below reload the payment iframe.</p>
+
+        <div class="v2-config-section">
+          <h3>Payment methods</h3>
+          <div class="field-group">
+            <label for="v2-preferred-method">Preferred payment method (<code>preferredPaymentMethod</code>)</label>
+            <select id="v2-preferred-method">
+              <option value="">— None (user selects) —</option>
+              <option value="GOOGLE_PAY">Google Pay</option>
+              <option value="APPLE_PAY">Apple Pay</option>
+              <option value="CARD">Card</option>
+              <option value="VISA_CLICK_TO_PAY">Click to Pay</option>
+              <option value="SAMSUNG_PAY">Samsung Pay</option>
+              <option value="AANI">Aani</option>
+              <option value="QPAY">QPay</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label for="v2-list-mode">Method list mode</label>
+            <select id="v2-list-mode">
+              <option value="default">Default SDK order (all available)</option>
+              <option value="order">Custom order (<code>paymentMethodOrder</code>)</option>
+              <option value="offerOnly">Offer only (<code>offerOnly</code> — whitelist + order)</option>
+            </select>
+          </div>
+          <p class="v2-muted" id="v2-list-mode-hint">Shows every method the outlet supports, in the SDK default order.</p>
+          <div class="field-group" id="v2-method-order-wrap" style="display:none;">
+            <label>Method order / offer list (top to bottom)</label>
+            <div class="v2-order-list" id="v2-method-order-list"></div>
+            <p class="v2-muted" id="v2-method-order-saved-hint" style="display:none;">Saved. Click Apply to update the payment form.</p>
+            <button type="button" id="v2-apply-methods-btn" class="checkoutButton" style="margin-top:8px;height:38px;font-size:.88rem;">Apply payment methods</button>
+          </div>
+        </div>
+
+        <div class="v2-config-section">
+          <h3>Branding &amp; theme (<code>style</code> → v2 theme)</h3>
+          <p class="v2-muted">Quick picks update the JSON below. Advanced overrides: edit JSON directly (colors, radii, fonts, spacing, shadows).</p>
+          <div class="v2-brand-row">
+            <div class="field-group">
+              <label for="v2-color-primary">Primary color</label>
+              <input type="color" id="v2-color-primary" value="#2563EB" />
+            </div>
+            <div class="field-group">
+              <label for="v2-color-accent">Accent color</label>
+              <input type="color" id="v2-color-accent" value="#D4A93A" />
+            </div>
+            <div class="field-group">
+              <label for="v2-color-page">Page backdrop</label>
+              <input type="color" id="v2-color-page" value="#DFE4EC" />
+            </div>
+            <div class="field-group">
+              <label for="v2-color-selected">Selected border</label>
+              <input type="color" id="v2-color-selected" value="#2563EB" />
+            </div>
+          </div>
+          <div class="field-group">
+            <label for="v2-font-family">Font family</label>
+            <input type="text" id="v2-font-family" placeholder="Inter, sans-serif" />
+          </div>
+          <div class="field-group">
+            <label for="v2-font-url">Font URL (Google Fonts CSS, optional)</label>
+            <input type="text" id="v2-font-url" placeholder="https://fonts.googleapis.com/css2?family=Inter..." />
+          </div>
+          <div class="field-group">
+            <label for="v2-radius-container">Container radius</label>
+            <input type="text" id="v2-radius-container" placeholder="20px" />
+          </div>
+          <div class="field-group">
+            <label for="v2-radius-input">Input radius</label>
+            <input type="text" id="v2-radius-input" placeholder="12px" />
+          </div>
+          <div class="field-group">
+            <label for="v2-branding-json">Theme JSON (merged into <code>mountCardInput({ style })</code>)</label>
+            <textarea id="v2-branding-json" class="ctp-config-textarea" spellcheck="false" rows="12" autocomplete="off"></textarea>
+          </div>
         </div>
       </div>
 
@@ -512,7 +692,7 @@
         if (res.ok) {
           const envConfig = await res.json();
           if (envConfig[config.env] && envConfig[config.env].sdkUrl) {
-            sdkUrl = envConfig[config.env].sdkUrl;
+            // sdkUrl = envConfig[config.env].sdkUrl;
           }
         }
       } catch (_) {}
@@ -559,6 +739,7 @@
       const hideLoadingBehavior  = JSON.parse(localStorage.getItem('hideLoadingBehavior'));
       const isMultiplePaymentMethods = JSON.parse(localStorage.getItem('showDigitalPayments'));
       const enableClickToPayStored   = JSON.parse(localStorage.getItem('enableClickToPay'));
+      const useNewDesignStored       = JSON.parse(localStorage.getItem('useNewDesign'));
       const enableVis                = JSON.parse(localStorage.getItem('enableVis'));
       const enableSlice              = JSON.parse(localStorage.getItem('enableSlice'));
       const selectedBillingAddress   = JSON.parse(localStorage.getItem('billingAddress'));
@@ -597,28 +778,134 @@
         billingAddress: {
           firstName: selectedBillingAddress ? selectedBillingAddress.firstName : null,
           lastName:  selectedBillingAddress ? selectedBillingAddress.lastName  : null
-        }
+        },
+        "shippingAddress": {
+        "firstName": "Husam",
+        "lastName": "D",
+        "address2": "Test2",
+        "city": "Dubai",
+        "state": "Dubai",
+        "country": "United Arab Emirates",
+        "countryCode": "UAE"
+    },
       };
       if (emailAddress) order.emailAddress = emailAddress;
       if (phoneNumber)  order.phoneNumber  = { countryCode: '+971', subscriber: phoneNumber };
 
       const merchantCurrency = order.amount.currencyCode;
 
-      // ── SDK style ─────────────────────────────────────────────────────────
-      const style = {
-        base: {
-          fontUrl:    'https://fonts.googleapis.com/css?family=Open+Sans&display=swap',
-          fontFamily: 'Open Sans',
-          textAlign:  'center'
+      const CTP_CONFIG_LS_KEY = 'ctpConfigJson';
+      const V2_CONFIG_LS_KEY = 'v2ConfigJson';
+
+      const V2_PAYMENT_METHODS = [
+        { key: 'CARD', label: 'Card' },
+        { key: 'APPLE_PAY', label: 'Apple Pay' },
+        { key: 'GOOGLE_PAY', label: 'Google Pay' },
+        { key: 'VISA_CLICK_TO_PAY', label: 'Click to Pay' },
+        { key: 'SAMSUNG_PAY', label: 'Samsung Pay' },
+        { key: 'AANI', label: 'Aani' },
+        { key: 'QPAY', label: 'QPay' }
+      ];
+
+      const defaultV2BrandingTheme = {
+        colors: {
+          primaryBg: '#2563EB',
+          primaryBgHover: '#1D4ED8',
+          borderSelected: '#2563EB',
+          surfaceSelected: '#F5F8FF',
+          accentBg: '#D4A93A',
+          accentBgHover: '#C29A2F',
+          page: '#DFE4EC'
         },
-        input: {
-          borderStyle: 'solid', borderWidth: '1px',
-          padding: '10px 5px', borderColor: 'black', borderRadius: '10px'
+        radii: {
+          input: '12px',
+          button: '12px',
+          card: '16px',
+          container: '20px'
         },
-        showInputsLabel: showInputLabel && showInputLabel.value
+        fonts: {
+          family: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          url: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
+        }
       };
 
-      const CTP_CONFIG_LS_KEY = 'ctpConfigJson';
+      const defaultV2ConfigObject = {
+        preferredPaymentMethod: '',
+        listMode: 'default',
+        methodOrder: V2_PAYMENT_METHODS.map(m => m.key),
+        checkedMethods: V2_PAYMENT_METHODS.map(m => m.key),
+        branding: defaultV2BrandingTheme
+      };
+
+      function parseV2ConfigFromStorage() {
+        try {
+          const raw = localStorage.getItem(V2_CONFIG_LS_KEY);
+          if (!raw) {
+            return {
+              ...defaultV2ConfigObject,
+              branding: JSON.parse(JSON.stringify(defaultV2BrandingTheme))
+            };
+          }
+          const parsed = JSON.parse(raw);
+          return {
+            preferredPaymentMethod: parsed.preferredPaymentMethod || '',
+            listMode: parsed.listMode || 'default',
+            methodOrder: Array.isArray(parsed.methodOrder) && parsed.methodOrder.length
+              ? parsed.methodOrder
+              : V2_PAYMENT_METHODS.map(m => m.key),
+            checkedMethods: Array.isArray(parsed.checkedMethods)
+              ? parsed.checkedMethods
+              : V2_PAYMENT_METHODS.map(m => m.key),
+            branding: parsed.branding && typeof parsed.branding === 'object'
+              ? parsed.branding
+              : defaultV2BrandingTheme
+          };
+        } catch (_) {
+          return defaultV2ConfigObject;
+        }
+      }
+
+      function parseV2BrandingFromTextarea() {
+        const el = document.getElementById('v2-branding-json');
+        const raw = el ? el.value.trim() : '';
+        if (!raw) return {};
+        try {
+          return JSON.parse(raw);
+        } catch (e) {
+          console.warn('v2 branding JSON parse failed:', e.message);
+          return {};
+        }
+      }
+
+      function buildLegacyStyle() {
+        return {
+          base: {
+            fontUrl: 'https://fonts.googleapis.com/css?family=Open+Sans&display=swap',
+            fontFamily: 'Open Sans',
+            textAlign: 'center'
+          },
+          input: {
+            borderStyle: 'solid', borderWidth: '1px',
+            padding: '10px 5px', borderColor: 'black', borderRadius: '10px'
+          },
+          showInputsLabel: showInputLabel && showInputLabel.value
+        };
+      }
+
+      function buildV2Style() {
+        const saved = parseV2ConfigFromStorage();
+        const fromTextarea = parseV2BrandingFromTextarea();
+        const branding = Object.keys(fromTextarea).length ? fromTextarea : (saved.branding || {});
+        return {
+          ...branding,
+          showInputsLabel: showInputLabel && showInputLabel.value
+        };
+      }
+
+      function getStyleForMount(isV2) {
+        return isV2 ? buildV2Style() : buildLegacyStyle();
+      }
+
       const orderAmountNum = Number(orderAmount);
       const ctpConfigOrderDetails = {
         amount: {
@@ -664,6 +951,7 @@
 
       const clickToPayEnabled =
         enableClickToPayStored == null ? true : !!enableClickToPayStored.value;
+      const newDesignEnabled = !!(useNewDesignStored && useNewDesignStored.value);
 
       function getCtpOrderDetailsFromInputs() {
         const amtEl = document.getElementById('orderAmount');
@@ -725,6 +1013,7 @@
 
       const paymentArea  = document.querySelector('#payment-section');
       const threeDSModal = document.querySelector('#iframe-modal');
+      const paymentModal = document.querySelector('.modal-content');
       let current          = stateMachine.initial;
       let sessionId        = null;
       let isDccSelected    = false;
@@ -809,7 +1098,7 @@
         try {
           const { response: converted, error } = await window.NI.handleForexCurrencyConversion(
             'currency-conversion',
-            { style, apiKey, realmName, outletRef,
+            { style: getStyleForMount(newDesignEnabled), apiKey, realmName, outletRef,
               orderAmount: { value: orderAmount, currencyCode: merchantCurrency },
               targetCurrencyCode: selectedCurrencyCode,
               isUsingFake: isUsingFake && isUsingFake.value }
@@ -849,7 +1138,7 @@
         try {
           const { response: res, error } = await window.NI.handleGetSupportedCurrencies(
             'currency-input',
-            { style, apiKey, outletRef, merchantCurrency, realmName, isUsingFake: isUsingFake && isUsingFake.value }
+            { style: getStyleForMount(newDesignEnabled), apiKey, outletRef, merchantCurrency, realmName, isUsingFake: isUsingFake && isUsingFake.value }
           );
           if (res.currencyList && res.currencyList.length) {
             res.currencyList.forEach(c => currencyInput.append(appendOption(c)));
@@ -1322,7 +1611,9 @@
           threeDSModal.classList.remove('open');
           throw e;
         }
-
+        if (paymentResponse?.qPayData === 'QPAY') {
+          paymentModal.classList.add('noBackground')
+        }
         threeDSModal.classList.add('open');
 
         const { status, error } = await window.NI.handlePaymentResponse(paymentResponse, {
@@ -1435,9 +1726,247 @@
         el.addEventListener('focusout', () => localStorage.setItem(CTP_CONFIG_LS_KEY, el.value));
       }
 
+      function getMethodKeysInDomOrder() {
+        const list = document.getElementById('v2-method-order-list');
+        if (!list) return [];
+        return Array.from(list.querySelectorAll('input[type="checkbox"]')).map(cb => cb.value);
+      }
+
+      function getCheckedMethodsFromDom() {
+        const list = document.getElementById('v2-method-order-list');
+        if (!list) return [];
+        return Array.from(list.querySelectorAll('input[type="checkbox"]'))
+          .filter(cb => cb.checked)
+          .map(cb => cb.value);
+      }
+
+      function saveV2ConfigFromDom() {
+        const cfg = {
+          preferredPaymentMethod: (document.getElementById('v2-preferred-method') || {}).value || '',
+          listMode: (document.getElementById('v2-list-mode') || {}).value || 'default',
+          methodOrder: getMethodKeysInDomOrder(),
+          checkedMethods: getCheckedMethodsFromDom(),
+          branding: parseV2BrandingFromTextarea()
+        };
+        localStorage.setItem(V2_CONFIG_LS_KEY, JSON.stringify(cfg, null, 2));
+        const jsonEl = document.getElementById('v2-branding-json');
+        if (jsonEl && cfg.branding) jsonEl.value = JSON.stringify(cfg.branding, null, 2);
+      }
+
+      function syncV2BrandingPickersFromJson() {
+        const theme = parseV2BrandingFromTextarea();
+        const colors = theme.colors || {};
+        const radii = theme.radii || {};
+        const fonts = theme.fonts || {};
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          if (el && val != null && val !== '') el.value = val;
+        };
+        const setColor = (id, val) => {
+          const el = document.getElementById(id);
+          if (el && val && /^#[0-9A-Fa-f]{6}$/.test(val)) el.value = val;
+        };
+        setColor('v2-color-primary', colors.primaryBg);
+        setColor('v2-color-accent', colors.accentBg);
+        setColor('v2-color-page', colors.page);
+        setColor('v2-color-selected', colors.borderSelected);
+        setVal('v2-font-family', fonts.family);
+        setVal('v2-font-url', fonts.url);
+        setVal('v2-radius-container', radii.container);
+        setVal('v2-radius-input', radii.input);
+      }
+
+      function applyV2BrandingPickersToJson() {
+        const theme = parseV2BrandingFromTextarea();
+        if (!theme.colors) theme.colors = {};
+        if (!theme.radii) theme.radii = {};
+        if (!theme.fonts) theme.fonts = {};
+        const primary = document.getElementById('v2-color-primary');
+        const accent = document.getElementById('v2-color-accent');
+        const page = document.getElementById('v2-color-page');
+        const selected = document.getElementById('v2-color-selected');
+        if (primary) {
+          theme.colors.primaryBg = primary.value;
+          theme.colors.primaryBgHover = primary.value;
+        }
+        if (accent) {
+          theme.colors.accentBg = accent.value;
+          theme.colors.accentBgHover = accent.value;
+        }
+        if (page) theme.colors.page = page.value;
+        if (selected) {
+          theme.colors.borderSelected = selected.value;
+          theme.colors.surfaceSelected = '#F5F8FF';
+        }
+        const fontFamily = document.getElementById('v2-font-family');
+        const fontUrl = document.getElementById('v2-font-url');
+        const radiusContainer = document.getElementById('v2-radius-container');
+        const radiusInput = document.getElementById('v2-radius-input');
+        if (fontFamily && fontFamily.value.trim()) theme.fonts.family = fontFamily.value.trim();
+        if (fontUrl) theme.fonts.url = fontUrl.value.trim();
+        if (radiusContainer && radiusContainer.value.trim()) theme.radii.container = radiusContainer.value.trim();
+        if (radiusInput && radiusInput.value.trim()) theme.radii.input = radiusInput.value.trim();
+        const jsonEl = document.getElementById('v2-branding-json');
+        if (jsonEl) jsonEl.value = JSON.stringify(theme, null, 2);
+      }
+
+      function updateV2ListModeUi() {
+        const mode = (document.getElementById('v2-list-mode') || {}).value || 'default';
+        const wrap = document.getElementById('v2-method-order-wrap');
+        const hint = document.getElementById('v2-list-mode-hint');
+        if (wrap) wrap.style.display = mode === 'default' ? 'none' : 'block';
+        if (hint) {
+          if (mode === 'default') {
+            hint.textContent = 'Shows every method the outlet supports, in the SDK default order.';
+          } else if (mode === 'order') {
+            hint.textContent = 'Check methods and order in the list below. Changes save automatically — click Apply payment methods to refresh the iframe.';
+          } else {
+            hint.textContent = 'Check methods to include (in list order). Changes save automatically — click Apply payment methods to refresh the iframe.';
+          }
+        }
+      }
+
+      function markV2MethodOrderDirty() {
+        saveV2ConfigFromDom();
+        const hint = document.getElementById('v2-method-order-saved-hint');
+        if (hint) hint.style.display = 'block';
+      }
+
+      function buildV2MethodOrderList(savedOrder, listMode, checkedMethods) {
+        const list = document.getElementById('v2-method-order-list');
+        if (!list) return;
+        list.innerHTML = '';
+        const orderedKeys = savedOrder.length ? savedOrder : V2_PAYMENT_METHODS.map(m => m.key);
+        const extras = V2_PAYMENT_METHODS.map(m => m.key).filter(k => !orderedKeys.includes(k));
+        const allKeys = [...orderedKeys, ...extras];
+        const checkedSet =
+          listMode === 'default'
+            ? new Set(allKeys)
+            : new Set(
+                Array.isArray(checkedMethods) && checkedMethods.length
+                  ? checkedMethods
+                  : allKeys
+              );
+        allKeys.forEach((key, idx) => {
+          const meta = V2_PAYMENT_METHODS.find(m => m.key === key) || { key, label: key };
+          const row = document.createElement('label');
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.value = key;
+          cb.checked = checkedSet.has(key);
+          cb.addEventListener('change', markV2MethodOrderDirty);
+          row.appendChild(cb);
+          row.appendChild(document.createTextNode(`${idx + 1}. ${meta.label} (${key})`));
+          list.appendChild(row);
+        });
+      }
+
+      function initV2ConfigPanel() {
+        if (!newDesignEnabled) return;
+
+        if (!localStorage.getItem(V2_CONFIG_LS_KEY)) {
+          localStorage.setItem(V2_CONFIG_LS_KEY, JSON.stringify(defaultV2ConfigObject, null, 2));
+        }
+
+        const saved = parseV2ConfigFromStorage();
+        const preferredEl = document.getElementById('v2-preferred-method');
+        const modeEl = document.getElementById('v2-list-mode');
+        const jsonEl = document.getElementById('v2-branding-json');
+
+        if (preferredEl) preferredEl.value = saved.preferredPaymentMethod || '';
+        if (modeEl) modeEl.value = saved.listMode || 'default';
+        if (jsonEl) {
+          jsonEl.value = JSON.stringify(saved.branding || defaultV2BrandingTheme, null, 2);
+        }
+
+        syncV2BrandingPickersFromJson();
+        buildV2MethodOrderList(
+          saved.methodOrder || [],
+          saved.listMode || 'default',
+          saved.checkedMethods
+        );
+        updateV2ListModeUi();
+        const savedHint = document.getElementById('v2-method-order-saved-hint');
+        if (savedHint) savedHint.style.display = 'none';
+
+        if (preferredEl) {
+          preferredEl.addEventListener('change', () => {
+            saveV2ConfigFromDom();
+            location.reload();
+          });
+        }
+        if (modeEl) {
+          modeEl.addEventListener('change', () => {
+            updateV2ListModeUi();
+            const prevChecked = getCheckedMethodsFromDom();
+            saveV2ConfigFromDom();
+            const saved = parseV2ConfigFromStorage();
+            buildV2MethodOrderList(
+              saved.methodOrder || [],
+              modeEl.value,
+              modeEl.value === 'default' ? saved.checkedMethods : prevChecked
+            );
+            markV2MethodOrderDirty();
+          });
+        }
+
+        const applyMethodsBtn = document.getElementById('v2-apply-methods-btn');
+        if (applyMethodsBtn) {
+          applyMethodsBtn.addEventListener('click', () => {
+            saveV2ConfigFromDom();
+            location.reload();
+          });
+        }
+
+        ['v2-color-primary', 'v2-color-accent', 'v2-color-page', 'v2-color-selected',
+          'v2-font-family', 'v2-font-url', 'v2-radius-container', 'v2-radius-input'
+        ].forEach(id => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.addEventListener('change', () => {
+            applyV2BrandingPickersToJson();
+            saveV2ConfigFromDom();
+            location.reload();
+          });
+          el.addEventListener('focusout', () => {
+            applyV2BrandingPickersToJson();
+            saveV2ConfigFromDom();
+          });
+        });
+
+        if (jsonEl) {
+          jsonEl.addEventListener('focusout', () => {
+            syncV2BrandingPickersFromJson();
+            saveV2ConfigFromDom();
+            location.reload();
+          });
+        }
+      }
+
+      function getV2MountOptions() {
+        if (!newDesignEnabled) return {};
+        const cfg = parseV2ConfigFromStorage();
+        const opts = {};
+        if (cfg.preferredPaymentMethod) {
+          opts.preferredPaymentMethod = cfg.preferredPaymentMethod;
+        }
+        const checkedFromDom = getCheckedMethodsFromDom();
+        const checkedList = checkedFromDom.length
+          ? checkedFromDom
+          : (cfg.checkedMethods || []);
+        if (cfg.listMode === 'offerOnly' && checkedList.length) {
+          opts.offerOnly = checkedList;
+        } else if (cfg.listMode === 'order' && checkedList.length) {
+          opts.paymentMethodOrder = checkedList;
+        }
+        return opts;
+      }
+
       function mountCardInput() {
+        const v2Opts = getV2MountOptions();
+        const mountStyle = getStyleForMount(newDesignEnabled);
         window?.NI?.mountCardInput('mount-point', {
-          style, apiKey, realmName, outletRef,
+          style: mountStyle, apiKey, realmName, outletRef,
           language: order.language,
           firstName: order.billingAddress.firstName,
           lastName:  order.billingAddress.lastName,
@@ -1451,6 +1980,8 @@
           },
           ctpConfig: parseCtpConfigFromTextarea(),
           enableClickToPay: clickToPayEnabled,
+          version: newDesignEnabled ? 2 : 1,
+          ...v2Opts,
           orderDetails,
           multiplePaymentMethods: isMultiplePaymentMethods && isMultiplePaymentMethods.value,
           onChangeValidStatus: ({ isCVVValid, isExpiryValid, isNameValid, isPanValid, isAaniDataValid }) => {
@@ -1588,6 +2119,7 @@
           { id: 'showDigitalPayments', save: el => localStorage.setItem('showDigitalPayments', JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
           { id: 'enableDcc',           save: el => localStorage.setItem('enableDcc',           JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
           { id: 'enableClickToPay',    save: el => localStorage.setItem('enableClickToPay',    JSON.stringify({ value: el.checked })),   restore: v => (v == null ? true : !!v.value) },
+          { id: 'useNewDesign',        save: el => localStorage.setItem('useNewDesign',        JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
           { id: 'enableVis',           save: el => localStorage.setItem('enableVis',           JSON.stringify({ value: el.checked })),   restore: v => v && v.value },
           { id: 'enableSlice',         save: el => localStorage.setItem('enableSlice',         JSON.stringify({ value: el.checked })),   restore: v => v && v.value }
         ];
@@ -1618,7 +2150,15 @@
         send('LOAD_PAYPAGE');
         document.querySelector('[data-show="MAKE_PAYMENT"]').style.display = 'block';
 
+        if (newDesignEnabled) {
+          document.body.classList.add('new-design');
+          if (isMultiplePaymentMethods && isMultiplePaymentMethods.value) {
+            document.body.classList.add('multi-methods');
+          }
+        }
+
         initCtpConfigTextarea();
+        initV2ConfigPanel();
 
         initLanguageSelector();
         initRealmNameSelector();
