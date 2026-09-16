@@ -16,7 +16,7 @@ const app = express();
 
 const IDENTITY_API_URL = 'https://api-gateway.sandbox.ngenius-payments.com/identity/auth/access-token'
 const TRANSACTIONS_SERVICE_URL = 'https://api-gateway-uat.ngenius-payments.com/transactions/'
-const PORT = 3000
+const PORT = 3001
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
@@ -29,22 +29,38 @@ app.use(express.static(__dirname));
 
 // ── Env → URL mapping (used when request includes env from setup page) ────────
 const ENV_URLS = {
-  production: {
-    identityUrl: 'https://api-gateway.ngenius-payments.com/identity/auth/access-token',
-    transactionsUrl: 'https://api-gateway.ngenius-payments.com/transactions/',
-    sdkUrl: 'https://paypage.ngenius-payments.com'
+  UAE: {
+    production: {
+      identityUrl: 'https://api-gateway.ngenius-payments.com/identity/auth/access-token',
+      transactionsUrl: 'https://api-gateway.ngenius-payments.com/transactions/',
+      sdkUrl: 'https://paypage.ngenius-payments.com'
+    },
+    sandbox: {
+      identityUrl: 'https://api-gateway.sandbox.ngenius-payments.com/identity/auth/access-token',
+      transactionsUrl: 'https://api-gateway.sandbox.ngenius-payments.com/transactions/',
+      sdkUrl: 'https://paypage.sandbox.ngenius-payments.com'
+    },
+    dev: {
+      identityUrl: 'https://api-gateway-dev.ngenius-payments.com/identity/auth/access-token',
+      transactionsUrl: 'https://api-gateway-dev.ngenius-payments.com/transactions/',
+      sdkUrl: 'https://paypage-dev.ngenius-payments.com'
+    }
   },
-  sandbox: {
-    identityUrl: 'https://api-gateway.sandbox.ngenius-payments.com/identity/auth/access-token',
-    transactionsUrl: 'https://api-gateway.sandbox.ngenius-payments.com/transactions/',
-    sdkUrl: 'https://paypage.sandbox.ngenius-payments.com'
-  },
-  dev: {
-    identityUrl: 'https://api-gateway-dev.ngenius-payments.com/identity/auth/access-token',
-    transactionsUrl: 'https://api-gateway-dev.ngenius-payments.com/transactions/',
-    sdkUrl: 'https://paypage-dev.ngenius-payments.com'
+  KSA: {
+    production: {
+      identityUrl: 'https://api-gateway.ksa.ngenius-payments.com/identity/auth/access-token',
+      transactionsUrl: 'https://api-gateway.ksa.ngenius-payments.com/transactions/',
+      sdkUrl: 'https://paypage.ksa.ngenius-payments.com'
+    },
+    sandbox: {
+      identityUrl: 'https://api-gateway.sandbox.ksa.ngenius-payments.com/identity/auth/access-token',
+      transactionsUrl: 'https://api-gateway.sandbox.ksa.ngenius-payments.com/transactions/',
+      sdkUrl: 'https://paypage.sandbox.ksa.ngenius-payments.com'
+    }
   }
 };
+
+const DEFAULT_REGION = 'UAE';
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 async function getAuthToken(realmName, identityUrl, merchantApiKey) {
@@ -65,6 +81,8 @@ async function getAuthToken(realmName, identityUrl, merchantApiKey) {
     return access_token;
   } catch (err) {
     console.error('Auth token error:', err.message);
+    console.log(err);
+    
     return null;
   }
 }
@@ -83,7 +101,7 @@ app.get('/api/env-config', (req, res) => {
  * When merchantApiKey and env are present, use ENV_URLS[env] and skip .env.
  */
 app.post('/api/hosted-sessions/payment', async (req, res) => {
-  const { sessionId, order, outletRef, merchantApiKey, env } = req.body;
+  const { sessionId, order, outletRef, merchantApiKey, env, region } = req.body;
   const { realmName } = req.query;
 
   if (!sessionId || !outletRef || !order) {
@@ -94,13 +112,17 @@ app.post('/api/hosted-sessions/payment', async (req, res) => {
   let transactionsUrl = TRANSACTIONS_SERVICE_URL;
   let authMerchantKey = merchantApiKey;
 
-  if (merchantApiKey && env && ENV_URLS[env]) {
-    identityUrl = ENV_URLS[env].identityUrl;
-    transactionsUrl = ENV_URLS[env].transactionsUrl;
+  const regionKey = ENV_URLS[region] ? region : DEFAULT_REGION;
+  const envUrls = ENV_URLS[regionKey] && ENV_URLS[regionKey][env];
+
+  if (merchantApiKey && env && envUrls) {
+    identityUrl = envUrls.identityUrl;
+    transactionsUrl = envUrls.transactionsUrl;
 
   } else if (!authMerchantKey || !identityUrl) {
-    return res.status(400).json({ error: 'Provide merchantApiKey and env (from setup), or set .env.' });
+    return res.status(400).json({ error: 'Provide merchantApiKey, region and env (from setup), or set .env.' });
   }
+console.log(identityUrl);
 
   const accessToken = await getAuthToken(realmName, identityUrl, authMerchantKey);
   if (!accessToken) {

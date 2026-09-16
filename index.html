@@ -421,6 +421,7 @@
   <nav class="navbar">
     <h2>Acme Design</h2>
     <a href="setup.html" class="tap-item">Settings</a>
+    <span id="region-badge" class="tap-item" style="font-weight:700;color:#253cfc;"></span>
     <div class="select-menu" id="langMenu">
       <div class="select-btn" id="selectedLanguageBtn">
         <span id="selectedLanguage">English</span>
@@ -484,20 +485,10 @@
 
       <!-- Realm name -->
       <div class="card checkbox-section">
-        <h2>Choose Realm Name</h2>
-        <h3>Sandbox</h3>
-        <label><input type="radio" name="realmName" value="ni" /> NI</label>
-        <label><input type="radio" name="realmName" value="SteveAcquirer" /> SteveAcquirer</label>
-        <label><input type="radio" name="realmName" value="UMB" /> UMB</label>
-        <h3>Dev</h3>
-        <label><input type="radio" name="realmName" value="qaintegration" /> qaintegration</label>
-        <label><input type="radio" name="realmName" value="osamaTenant" /> osamaTenant</label>
-        <label><input type="radio" name="realmName" value="superTenant" /> superTenant</label>
-        <h3>KSA UAT</h3>
-        <label><input type="radio" name="realmName" value="NIARABIA" /> NIARABIA</label>
+        <h2>Realm Name</h2>
         <div class="field-group">
-          <label for="currency">Or Enter your realmName</label>
-          <input type="text" id="realmName"  />
+          <label for="realmName">Realm Name</label>
+          <input type="text" id="realmName" />
         </div>
       </div>
 
@@ -721,13 +712,18 @@
         return;
       }
 
+      const region = config.region === 'KSA' ? 'KSA' : 'UAE';
+
+      const badge = document.getElementById('region-badge');
+      if (badge) badge.textContent = region + ' · ' + config.env;
+
       let sdkUrl = 'http://localhost:4000';
       try {
         const res = await fetch('/api/env-config');
         if (res.ok) {
           const envConfig = await res.json();
-          if (envConfig[config.env] && envConfig[config.env].sdkUrl) {
-            // sdkUrl = envConfig[config.env].sdkUrl;
+          if (envConfig[region] && envConfig[region][config.env] && envConfig[region][config.env].sdkUrl) {
+            // sdkUrl = envConfig[region][config.env].sdkUrl;
           }
         }
       } catch (_) {}
@@ -759,7 +755,7 @@
       // ── Config & persisted state ──────────────────────────────────────────
       const outletRef = config.outletRef;
       const apiKey    = config.hostedSessionApiKey;
-      let   realmName = JSON.parse(localStorage.getItem('realmName')) || '';
+      let   realmName = config.realmName || JSON.parse(localStorage.getItem('realmName') || '""') || '';
 
       const selectedLanguageFromLocalStorage = localStorage.getItem('selectedLanguage');
       const defaultLanguage  = selectedLanguageFromLocalStorage || 'en';
@@ -1126,7 +1122,8 @@
           sessionId,
           outletRef,
           merchantApiKey: config.merchantApiKey,
-          env: config.env
+          env: config.env,
+          region: config.region || 'UAE'
         };
         return apiClient(`/api/hosted-sessions/payment${qs}`, 'POST', body);
       }
@@ -2034,17 +2031,6 @@
         langSpan.innerText = codeToLabel[defaultLanguage] || 'English';
       }
 
-      function initRealmNameSelector() {
-        document.querySelectorAll('input[name="realmName"]').forEach(opt => {
-          if (opt.value === realmName) opt.checked = true;
-          opt.addEventListener('click', () => {
-            realmName = opt.value;
-            localStorage.setItem('realmName', JSON.stringify(realmName));
-            markConfigDirty();
-          });
-        });
-      }
-
       function initNameOptions() {
         const billing = { firstName: '', lastName: '' };
         // Restore checked state
@@ -2174,7 +2160,6 @@
         initV2ConfigPanel();
 
         initLanguageSelector();
-        initRealmNameSelector();
         initRealmNameInput();
         initNameOptions();
         initOrderType();

@@ -107,11 +107,22 @@
           <input type="text" id="outletRef" name="outletRef" placeholder="e.g. db1bcaaa-3ae6-47ec-a11a-91f3a5836cf7" autocomplete="off" />
         </div>
         <div class="field-group">
+          <label for="realmName">Realm Name <span style="font-weight:400;color:#888;">(optional)</span></label>
+          <input type="text" id="realmName" name="realmName" placeholder="e.g. ni, NIARABIA" autocomplete="off" />
+        </div>
+        <div class="field-group">
+          <label for="region">Region</label>
+          <select id="region" name="region">
+            <option value="UAE">UAE</option>
+            <option value="KSA">KSA</option>
+          </select>
+        </div>
+        <div class="field-group">
           <label for="env">Environment</label>
           <select id="env" name="env">
             <option value="sandbox">Sandbox</option>
             <option value="production">Production</option>
-            <option value="dev">Dev</option>
+            <option value="dev" id="env-opt-dev">Dev</option>
           </select>
         </div>
         <p class="error-msg" id="error-msg">Please fill in all fields.</p>
@@ -132,21 +143,38 @@
       }
     }
 
+    const regionEl = document.getElementById('region');
+    const envEl = document.getElementById('env');
+    const devOptEl = document.getElementById('env-opt-dev');
+
+    // KSA has no Dev environment – hide the option (and fall back to sandbox)
+    function syncEnvOptions() {
+      const isKsa = regionEl.value === 'KSA';
+      devOptEl.hidden = isKsa;
+      if (isKsa && envEl.value === 'dev') envEl.value = 'sandbox';
+    }
+    regionEl.addEventListener('change', syncEnvOptions);
+
     // Pre-fill from previous config if any
     const stored = getStoredConfig();
     if (stored) {
       document.getElementById('merchantApiKey').value = stored.merchantApiKey || '';
       document.getElementById('hostedSessionApiKey').value = stored.hostedSessionApiKey || '';
       document.getElementById('outletRef').value = stored.outletRef || '';
-      document.getElementById('env').value = (stored.env === 'dev' || stored.env === 'sandbox') ? stored.env : 'sandbox';
+      document.getElementById('realmName').value = stored.realmName || '';
+      regionEl.value = stored.region === 'KSA' ? 'KSA' : 'UAE';
+      envEl.value = ['dev', 'sandbox', 'production'].includes(stored.env) ? stored.env : 'sandbox';
     }
+    syncEnvOptions();
 
     document.getElementById('setup-form').addEventListener('submit', (e) => {
       e.preventDefault();
       const merchantApiKey = document.getElementById('merchantApiKey').value.trim();
       const hostedSessionApiKey = document.getElementById('hostedSessionApiKey').value.trim();
       const outletRef = document.getElementById('outletRef').value.trim();
-      const env = document.getElementById('env').value;
+      const realmName = document.getElementById('realmName').value.trim();
+      const region = regionEl.value;
+      const env = envEl.value;
 
       const errEl = document.getElementById('error-msg');
       if (!merchantApiKey || !hostedSessionApiKey || !outletRef) {
@@ -154,8 +182,18 @@
         errEl.classList.add('visible');
         return;
       }
+      if (region !== 'UAE' && region !== 'KSA') {
+        errEl.textContent = 'Please select Region (UAE or KSA).';
+        errEl.classList.add('visible');
+        return;
+      }
       if (env !== 'sandbox' && env !== 'dev' && env !== 'production') {
         errEl.textContent = 'Please select Environment (Sandbox, Production or Dev).';
+        errEl.classList.add('visible');
+        return;
+      }
+      if (region === 'KSA' && env === 'dev') {
+        errEl.textContent = 'KSA does not support the Dev environment. Choose Sandbox or Production.';
         errEl.classList.add('visible');
         return;
       }
@@ -165,9 +203,12 @@
         merchantApiKey,
         hostedSessionApiKey,
         outletRef,
+        realmName,
+        region,
         env
       };
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      localStorage.setItem('realmName', JSON.stringify(realmName));
       window.location.href = 'index.html';
     });
   </script>
