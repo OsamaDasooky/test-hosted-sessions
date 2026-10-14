@@ -14,12 +14,23 @@ const bodyParser = require('body-parser');
 
 const app = express();
 
-const IDENTITY_API_URL = 'https://api-gateway.sandbox.ngenius-payments.com/identity/auth/access-token'
-const TRANSACTIONS_SERVICE_URL = 'https://api-gateway-uat.ngenius-payments.com/transactions/'
-const PORT = 3001
+const IDENTITY_API_URL =
+  process.env.IDENTITY_API_URL ||
+  'https://api-gateway.sandbox.ngenius-payments.com/identity/auth/access-token';
+const TRANSACTIONS_SERVICE_URL =
+  process.env.TRANSACTIONS_SERVICE_URL ||
+  'https://api-gateway-uat.ngenius-payments.com/transactions/';
+const PORT = Number(process.env.PORT) || 3001;
+const HOST = process.env.HOST || '0.0.0.0';
+
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+
+// Health check for platform probes (Render, Railway, etc.)
+app.get('/health', (_req, res) => {
+  res.status(200).json({ ok: true });
+});
 
 // Serve index.html (and any other static files in this folder)
 app.use(express.static(__dirname));
@@ -151,38 +162,40 @@ console.log(identityUrl);
   }
 });
 
-// ── Debug log ingest (phone → LAN server → NDJSON file + local ingest) ─────────
-const fs = require('fs');
-const DEBUG_LOG_PATH = path.join(__dirname, '.cursor', 'debug-09053b.log');
-const DEBUG_INGEST = 'http://127.0.0.1:7832/ingest/c3ddfd12-4573-4bcc-97ee-f72c54d8ba4b';
+// ── Debug log ingest (local LAN debugging only) ───────────────────────────────
+if (process.env.NODE_ENV !== 'production') {
+  const fs = require('fs');
+  const DEBUG_LOG_PATH = path.join(__dirname, '.cursor', 'debug-09053b.log');
+  const DEBUG_INGEST = 'http://127.0.0.1:7832/ingest/c3ddfd12-4573-4bcc-97ee-f72c54d8ba4b';
 
-app.post('/api/debug-log', async (req, res) => {
-  const payload = {
-    sessionId: '09053b',
-    timestamp: Date.now(),
-    ...req.body
-  };
-  try {
-    fs.mkdirSync(path.dirname(DEBUG_LOG_PATH), { recursive: true });
-    fs.appendFileSync(DEBUG_LOG_PATH, JSON.stringify(payload) + '\n');
-  } catch (err) {
-    console.error('debug-log file write failed:', err.message);
-  }
-  try {
-    await axios.post(DEBUG_INGEST, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '09053b'
-      },
-      timeout: 2000
-    });
-  } catch (_) {
-    /* ingest optional */
-  }
-  res.status(204).end();
-});
+  app.post('/api/debug-log', async (req, res) => {
+    const payload = {
+      sessionId: '09053b',
+      timestamp: Date.now(),
+      ...req.body
+    };
+    try {
+      fs.mkdirSync(path.dirname(DEBUG_LOG_PATH), { recursive: true });
+      fs.appendFileSync(DEBUG_LOG_PATH, JSON.stringify(payload) + '\n');
+    } catch (err) {
+      console.error('debug-log file write failed:', err.message);
+    }
+    try {
+      await axios.post(DEBUG_INGEST, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Debug-Session-Id': '09053b'
+        },
+        timeout: 2000
+      });
+    } catch (_) {
+      /* ingest optional */
+    }
+    res.status(204).end();
+  });
+}
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () =>
-  console.log(`✅  Server running → http://localhost:${PORT}`)
+app.listen(PORT, HOST, () =>
+  console.log(`✅  Server running → http://${HOST}:${PORT}`)
 );

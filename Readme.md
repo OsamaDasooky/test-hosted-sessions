@@ -6,15 +6,17 @@ proxies payment calls to the NI payment gateway.
 ## Project structure
 
 ```
-payment-project/
-├── index.html      ← Checkout UI + all client-side JS (no bundler needed)
-├── server.js       ← Express server (proxies /api/hosted-sessions/payment)
+├── index.html       ← Checkout UI + client-side JS
+├── setup.html       ← Region / env / credentials setup
+├── iframe.html      ← iframe demo wrapper
+├── server.js        ← Express server (proxies payment API)
 ├── package.json
-├── .env.example    ← Copy to .env and fill in your credentials
-└── README.md
+├── .env.example     ← Copy to .env for local defaults (optional)
+├── Procfile         ← Heroku / Railway style start
+└── render.yaml      ← Render Blueprint (optional)
 ```
 
-## Quick start
+## Quick start (local)
 
 ### 1 – Install dependencies
 
@@ -22,51 +24,57 @@ payment-project/
 npm install
 ```
 
-### 2 – Configure credentials
+### 2 – Configure credentials (optional)
+
+Credentials can be entered in the **setup** page in the browser. For optional server defaults:
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and set:
+| Variable | Description |
+|----------|-------------|
+| `MERCHANT_API_KEY` | Base64-encoded `apiKey:apiSecret` (optional if sent from setup) |
+| `IDENTITY_API_URL` | Token endpoint |
+| `TRANSACTIONS_SERVICE_URL` | Transactions base URL (trailing slash) |
+| `PORT` | Listen port (default `3001`; cloud hosts inject this) |
+| `HOST` | Bind address (default `0.0.0.0`) |
+| `NODE_ENV` | Use `production` on hosted deployments |
 
-| Variable                   | Description                                                         |
-|----------------------------|---------------------------------------------------------------------|
-| `MERCHANT_API_KEY`                  | Base64-encoded `apiKey:apiSecret` from your NI onboarding email     |
-| `IDENTITY_API_URL`         | Token endpoint, e.g. `https://api-gateway.sandbox.ngenius-payments.com/identity/auth/access-token` |
-| `TRANSACTIONS_SERVICE_URL` | Transactions base URL (trailing slash), e.g. `https://api-gateway.sandbox.ngenius-payments.com/transactions/outlets/` |
-| `PORT`                     | Local port (default `3000`)                                         |
-
-### 3 – Set your outlet ref & public API key in index.html
-
-Open `index.html` and update the two constants near the top of the `<script>` block:
-
-```js
-const OUTLET_REF = 'your-outlet-ref';   // from NI onboarding
-const MERCHANT_API_KEY    = 'your-public-key';   // public / session API key
-```
-
-### 4 – Point the SDK script tag to your SDK URL
-
-In `index.html`, update this line:
-
-```html
-<script src="http://localhost:4000/hosted-sessions/sdk.js"></script>
-```
-
-Replace `localhost:4000` with the real NI SDK CDN URL provided during onboarding.
-
-### 5 – Start the server
+### 3 – Start the server
 
 ```bash
-# Production
-npm start
-
-# Development (auto-restarts on file changes)
-npm run dev
+npm start          # production-style
+npm run dev        # auto-restart (nodemon)
 ```
 
-Open **http://localhost:3000** in your browser.
+Open **http://localhost:3001** (or your `PORT`).
+
+## Deploy (GitHub → cloud)
+
+This app needs a **Node** host (not GitHub Pages). Recommended: [Render](https://render.com).
+
+### Render (recommended)
+
+1. Push this repo to GitHub (do **not** commit `.env`).
+2. In Render: **New → Blueprint** and select the repo (uses `render.yaml`),  
+   or **New → Web Service** with:
+   - **Build:** `npm install`
+   - **Start:** `npm start`
+   - **Health check path:** `/health`
+3. Set env vars in the Render dashboard (at least `NODE_ENV=production`).  
+   Merchant credentials can still be entered via the setup page.
+4. Deploy → open the Render URL.
+
+### Railway / Heroku-style
+
+- Start command: `npm start` (or `Procfile` `web` process)
+- Set `NODE_ENV=production`
+- Platform provides `PORT` automatically
+
+### Important security note
+
+If `.env` was ever committed to GitHub, **rotate** your merchant API keys and treat the old ones as exposed. This repo now ignores `.env` and ships `.env.example` instead.
 
 ## How it works
 
@@ -76,8 +84,8 @@ Browser (index.html)
   │  → POST /api/hosted-sessions/payment   { sessionId, outletRef, order }
   ▼
 server.js
-  │  → POST IDENTITY_API_URL               (exchange MERCHANT_API_KEY for Bearer token)
-  │  → POST TRANSACTIONS_SERVICE_URL/...   (forward payment with Bearer token)
+  │  → POST identity URL                   (exchange key for Bearer token)
+  │  → POST transactions URL/...           (forward payment with Bearer token)
   │  ← payment response JSON
   ▼
 Browser
@@ -86,6 +94,7 @@ Browser
 
 ## Troubleshooting
 
-- **"Missing env vars"** – make sure you renamed `.env.example` to `.env`.
-- **SDK not loading** – check the `<script src="...sdk.js">` URL is correct.
-- **CORS errors** – the SDK's `mountCardInput` call goes directly to NI servers; your Express server is only used for the final payment step.
+- **"Missing env vars"** – use the setup page, or copy `.env.example` → `.env`.
+- **SDK not loading** – check the SDK URL for your region/environment.
+- **Deploy crash / wrong port** – ensure the host’s `PORT` is used (`process.env.PORT`).
+- **Health check failing** – probe `GET /health` (returns `{ "ok": true }`).

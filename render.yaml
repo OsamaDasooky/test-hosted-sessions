@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: ni-hosted-sessions-demo
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: MERCHANT_API_KEY
+        sync: false
+      - key: IDENTITY_API_URL
+        sync: false
+      - key: TRANSACTIONS_SERVICE_URL
+        sync: false
