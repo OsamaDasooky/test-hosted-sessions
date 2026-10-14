@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hosted Payment Page</title>
+  <title>Paypage v2 – Iframe Demo</title>
   <style>
     *,
     *::before,
@@ -18,7 +18,7 @@
       height: 100%;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
         "Helvetica Neue", Arial, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 50%, #0f766e 100%);
       color: #1f2937;
     }
 
@@ -30,8 +30,10 @@
 
     header.topbar {
       display: flex;
-      align-items: center;
+      flex-wrap: wrap;
+      align-items: flex-end;
       justify-content: space-between;
+      gap: 16px;
       padding: 16px 24px;
       background: rgba(255, 255, 255, 0.08);
       backdrop-filter: blur(8px);
@@ -42,24 +44,57 @@
     .topbar h1 {
       font-size: 16px;
       font-weight: 600;
-      margin: 0;
+      margin: 0 0 4px;
       letter-spacing: 0.2px;
     }
 
-    .topbar .url {
+    .topbar .hint {
       font-size: 12px;
-      opacity: 0.85;
-      max-width: 60vw;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      opacity: 0.8;
+      margin: 0;
     }
 
     .controls {
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       align-items: center;
+      flex: 1;
+      justify-content: flex-end;
+      min-width: 280px;
+    }
+
+    .controls label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+      opacity: 0.9;
+    }
+
+    .controls select,
+    .controls input {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      font-size: 13px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      outline: none;
+    }
+
+    .controls select option {
+      color: #111;
+    }
+
+    .controls input {
+      width: min(360px, 50vw);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+
+    .controls input::placeholder {
+      color: rgba(255, 255, 255, 0.5);
     }
 
     .controls button,
@@ -75,11 +110,23 @@
       cursor: pointer;
       text-decoration: none;
       transition: background 0.15s ease, transform 0.05s ease;
+      align-self: flex-end;
+    }
+
+    .controls button.primary {
+      background: #14b8a6;
+      border-color: #14b8a6;
+      color: #042f2e;
+      font-weight: 600;
     }
 
     .controls button:hover,
     .controls a:hover {
       background: rgba(255, 255, 255, 0.22);
+    }
+
+    .controls button.primary:hover {
+      background: #2dd4bf;
     }
 
     .controls button:active {
@@ -100,7 +147,7 @@
       background: #fff;
       border-radius: 14px;
       overflow: hidden;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
       position: relative;
       display: flex;
       flex-direction: column;
@@ -122,6 +169,7 @@
     .loader.hidden {
       opacity: 0;
       visibility: hidden;
+      pointer-events: none;
     }
 
     .spinner {
@@ -129,7 +177,7 @@
       height: 42px;
       border-radius: 50%;
       border: 3px solid #e5e7eb;
-      border-top-color: #667eea;
+      border-top-color: #0f766e;
       animation: spin 0.9s linear infinite;
     }
 
@@ -145,11 +193,13 @@
     }
 
     iframe {
-      flex: 1;
+      /* Explicit height: iOS Safari often collapses flex:1 iframes to 0 */
+      flex: 1 1 auto;
       width: 100%;
+      height: 75vh;
       border: 0;
       display: block;
-      min-height: 600px;
+      min-height: 640px;
       background: #fff;
     }
 
@@ -159,17 +209,22 @@
       color: rgba(255, 255, 255, 0.85);
       text-align: center;
       background: rgba(0, 0, 0, 0.15);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      word-break: break-all;
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 720px) {
       header.topbar {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
+        align-items: stretch;
       }
 
-      .topbar .url {
-        max-width: 100%;
+      .controls {
+        justify-content: stretch;
+      }
+
+      .controls input {
+        width: 100%;
       }
 
       main.frame-wrap {
@@ -182,56 +237,333 @@
   <div class="page">
     <header class="topbar">
       <div>
-        <h1>Hosted Payment Page</h1>
-        <div class="url" id="urlLabel"></div>
+        <h1>Paypage v2 · Iframe Demo</h1>
+        <p class="hint">Embeds the hosted payment page inside a merchant iframe</p>
       </div>
-      <div class="controls">
+      <form class="controls" id="loadForm">
+        <label>
+          Environment
+          <select id="envSelect" name="env">
+            <option value="http://192.168.1.23:8080/">Local</option>
+            <option value="https://paypage-dev.platform.network.ae/v2/">Dev v2</option>
+            <option value="https://paypage-sandbox.platform.network.ae/v2/">Sandbox v2</option>
+            <option value="https://paypage.platform.network.ae/v2/">Production v2</option>
+            <option value="https://paypage-dev.platform.network.ae/">Dev classic</option>
+            <option value="https://paypage-sandbox.platform.network.ae/">Sandbox classic</option>
+            <option value="https://paypage-dev.ngenius-payments.com/">Dev classic (ngenius)</option>
+            <option value="https://paypage.sandbox.ngenius-payments.com/">Sandbox classic (ngenius)</option>
+          </select>
+        </label>
+        <label>
+          Payment code or full URL
+          <input
+            id="codeInput"
+            name="code"
+            type="text"
+            placeholder="e.g. 4651c7c739aa59fb or full /v2?code=…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </label>
+        <button class="primary" type="submit">Load in iframe</button>
         <button id="reloadBtn" type="button" title="Reload iframe">Reload</button>
-        <a id="openBtn" href="#" target="_blank" rel="noopener noreferrer">Open in new tab</a>
-      </div>
+        <a id="openBtn" href="#" target="_blank" rel="noopener noreferrer">Open tab</a>
+      </form>
     </header>
 
     <main class="frame-wrap">
       <div class="frame-card">
         <div class="loader" id="loader">
           <div class="spinner" aria-hidden="true"></div>
-          <span>Loading payment page…</span>
+          <span id="loaderText">Enter a payment code and click Load</span>
         </div>
+        <!-- Plain iframe — same style as classic paypage embeds (no sandbox / special attrs) -->
         <iframe
           id="paymentFrame"
-          src="https://paypage-dev.platform.network.ae/v2?code=4651c7c739aa59fb"
-          title="Hosted Payment Page"
-          allow="payment *; clipboard-read; clipboard-write"
-          referrerpolicy="no-referrer-when-downgrade"
+          title="Paypage"
         ></iframe>
       </div>
     </main>
 
-    <footer class="statusbar" id="statusbar">Initializing…</footer>
+    <footer class="statusbar" id="statusbar">Waiting for payment code…</footer>
+    <div id="symptomBar" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 24px;background:rgba(0,0,0,.25);">
+      <span style="color:#fff;font-size:12px;align-self:center;">What do you see in the iframe?</span>
+      <button type="button" data-symptom="blank_white" style="appearance:none;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;">Blank / white</button>
+      <button type="button" data-symptom="spinner_stuck" style="appearance:none;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;">Spinner stuck</button>
+      <button type="button" data-symptom="access_denied_403" style="appearance:none;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;">Access Denied / 403</button>
+      <button type="button" data-symptom="error_other" style="appearance:none;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;">Other error</button>
+      <button type="button" data-symptom="works" style="appearance:none;border:1px solid rgba(255,255,255,.35);background:#14b8a6;color:#042f2e;font-size:12px;padding:6px 10px;border-radius:8px;font-weight:600;">Works</button>
+    </div>
+    <pre id="diagPanel" style="margin:0;padding:10px 24px 16px;font-size:11px;color:#d1fae5;background:rgba(0,0,0,.35);max-height:160px;overflow:auto;white-space:pre-wrap;"></pre>
   </div>
 
   <script>
     (function () {
       const iframe = document.getElementById('paymentFrame');
       const loader = document.getElementById('loader');
+      const loaderText = document.getElementById('loaderText');
       const status = document.getElementById('statusbar');
-      const urlLabel = document.getElementById('urlLabel');
+      const diagPanel = document.getElementById('diagPanel');
+      const envSelect = document.getElementById('envSelect');
+      const codeInput = document.getElementById('codeInput');
+      const loadForm = document.getElementById('loadForm');
       const reloadBtn = document.getElementById('reloadBtn');
       const openBtn = document.getElementById('openBtn');
 
-      const targetUrl = iframe.getAttribute('src');
-      urlLabel.textContent = targetUrl;
-      openBtn.href = targetUrl;
+      const runId = 'ios-iframe-' + Date.now();
+      const diagLines = [];
+
+      // #region agent log
+      function dbg(hypothesisId, location, message, data) {
+        const line =
+          '[' + hypothesisId + '] ' + message +
+          (data ? ' ' + JSON.stringify(data) : '');
+        diagLines.push(line);
+        if (diagLines.length > 40) diagLines.shift();
+        diagPanel.textContent = diagLines.join('\n');
+        fetch('/api/debug-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: '09053b',
+            runId: runId,
+            hypothesisId: hypothesisId,
+            location: location,
+            message: message,
+            data: data || {},
+            timestamp: Date.now()
+          })
+        }).catch(function () {});
+      }
+      // #endregion
+
+      function probeParentStorage() {
+        const result = { localStorage: null, sessionStorage: null, cookie: null };
+        try {
+          localStorage.setItem('__dbg', '1');
+          result.localStorage = localStorage.getItem('__dbg') === '1';
+          localStorage.removeItem('__dbg');
+        } catch (e) {
+          result.localStorage = 'ERR:' + e.name;
+        }
+        try {
+          sessionStorage.setItem('__dbg', '1');
+          result.sessionStorage = sessionStorage.getItem('__dbg') === '1';
+          sessionStorage.removeItem('__dbg');
+        } catch (e) {
+          result.sessionStorage = 'ERR:' + e.name;
+        }
+        try {
+          document.cookie = '__dbg=1; path=/; SameSite=None; Secure';
+          result.cookie = document.cookie.indexOf('__dbg=') !== -1;
+        } catch (e) {
+          result.cookie = 'ERR:' + e.name;
+        }
+        return result;
+      }
+
+      function classifyEnv(url) {
+        try {
+          const u = new URL(url);
+          const isV2 = u.pathname.indexOf('/v2') === 0 || u.pathname.indexOf('/v2/') === 0;
+          const host = u.hostname;
+          return {
+            isV2: isV2,
+            host: host,
+            isClassic: !isV2,
+            isNgenius: host.indexOf('ngenius-payments.com') !== -1,
+            isPlatform: host.indexOf('platform.network.ae') !== -1
+          };
+        } catch (e) {
+          return { error: String(e) };
+        }
+      }
+
+      function inspectIframeAccess() {
+        const info = {
+          src: iframe.src,
+          accessible: null,
+          href: null,
+          aboutBlank: null,
+          crossOriginLikely: null
+        };
+        try {
+          const href = iframe.contentWindow.location.href;
+          info.accessible = true;
+          info.href = href;
+          info.aboutBlank = href === 'about:blank';
+          info.crossOriginLikely = false;
+        } catch (e) {
+          info.accessible = false;
+          info.href = null;
+          info.aboutBlank = false;
+          info.crossOriginLikely = e.name === 'SecurityError' || /cross-origin|Blocked a frame/i.test(String(e));
+          info.errorName = e.name;
+          info.errorMessage = String(e.message || e).slice(0, 120);
+        }
+        return info;
+      }
+
+      async function probePaypageHeaders(url) {
+        try {
+          const res = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit', cache: 'no-store' });
+          return {
+            ok: res.ok,
+            status: res.status,
+            type: res.type,
+            csp: res.headers.get('content-security-policy'),
+            xfo: res.headers.get('x-frame-options'),
+            setCookie: res.headers.get('set-cookie'),
+            coop: res.headers.get('cross-origin-opener-policy'),
+            corp: res.headers.get('cross-origin-resource-policy')
+          };
+        } catch (e) {
+          // Opaque/cors failure is expected for many paypage hosts; still useful signal
+          return { ok: false, error: e.name + ':' + e.message, note: 'cors-or-network' };
+        }
+      }
+
+      // #region agent log
+      dbg('E', 'iframe.html:boot', 'parent boot', {
+        ua: navigator.userAgent,
+        topOrigin: location.origin,
+        topHref: location.href,
+        protocol: location.protocol,
+        standalone: !!(navigator.standalone),
+        storage: probeParentStorage(),
+        cookieEnabled: navigator.cookieEnabled
+      });
+      // #endregion
+
+      const params = new URLSearchParams(window.location.search);
+      const initialCode = params.get('code') || '';
+      const initialEnv = params.get('env');
+      if (initialCode) codeInput.value = initialCode;
+      if (initialEnv) {
+        const match = Array.from(envSelect.options).find(function (o) {
+          return o.value.indexOf(initialEnv) !== -1 || o.textContent.toLowerCase() === initialEnv.toLowerCase();
+        });
+        if (match) envSelect.value = match.value;
+      }
+
+      let currentUrl = '';
+      let loadStartedAt = 0;
+
+      function buildUrl(raw) {
+        const value = (raw || '').trim();
+        if (!value) return '';
+        if (/^https?:\/\//i.test(value)) return value;
+        let base = envSelect.value;
+        if (!base.endsWith('/')) base += '/';
+        const code = value.replace(/^\?code=/, '').replace(/^code=/, '');
+        return base + '?code=' + encodeURIComponent(code);
+      }
+
+      function loadFrame(url) {
+        if (!url) {
+          status.textContent = 'Enter a payment code or full paypage URL';
+          return;
+        }
+        currentUrl = url;
+        openBtn.href = url;
+        loader.classList.remove('hidden');
+        loaderText.textContent = 'Loading paypage…';
+        status.textContent = 'Loading · ' + url;
+        loadStartedAt = Date.now();
+
+        const cls = classifyEnv(url);
+        // #region agent log
+          dbg('A', 'iframe.html:loadFrame', 'loading iframe src', {
+          url: url,
+          envLabel: envSelect.options[envSelect.selectedIndex].text,
+          classify: cls,
+          plainIframe: !iframe.getAttribute('sandbox') && !iframe.getAttribute('allow')
+        });
+        // #endregion
+
+        iframe.src = url;
+
+        // Header probe in parallel (hypothesis C)
+        probePaypageHeaders(url).then(function (headers) {
+          // #region agent log
+          dbg('C', 'iframe.html:headers', 'paypage header probe', { url: url, headers: headers });
+          // #endregion
+        });
+
+        const next = new URL(window.location.href);
+        try {
+          const u = new URL(url);
+          const code = u.searchParams.get('code');
+          if (code) next.searchParams.set('code', code);
+          if (u.port === '8081' || u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
+            next.searchParams.set('env', 'local');
+          } else if (u.pathname.indexOf('/v2') === 0) {
+            next.searchParams.set('env', u.hostname.indexOf('sandbox') !== -1 ? 'sandbox' : u.hostname.indexOf('dev') !== -1 ? 'dev' : 'production');
+          } else if (u.hostname.indexOf('sandbox') !== -1) {
+            next.searchParams.set('env', 'sandbox-classic');
+          } else if (u.hostname.indexOf('dev') !== -1) {
+            next.searchParams.set('env', 'dev-classic');
+          } else {
+            next.searchParams.set('env', 'production');
+          }
+          history.replaceState(null, '', next.toString());
+        } catch (e) {}
+      }
 
       iframe.addEventListener('load', function () {
+        if (!currentUrl) return;
+        const elapsed = Date.now() - loadStartedAt;
         loader.classList.add('hidden');
-        status.textContent = 'Loaded · ' + new Date().toLocaleTimeString();
+        status.textContent = 'Loaded · ' + currentUrl + ' · ' + new Date().toLocaleTimeString();
+        const access = inspectIframeAccess();
+        const cls = classifyEnv(currentUrl);
+        // #region agent log
+        dbg(access.aboutBlank ? 'C' : access.crossOriginLikely ? 'D' : 'C', 'iframe.html:load', 'iframe load event', {
+          elapsedMs: elapsed,
+          classify: cls,
+          access: access
+        });
+        // #endregion
+
+        // Delayed re-check: Akamai challenge / SPA boot may change accessibility briefly
+        setTimeout(function () {
+          const later = inspectIframeAccess();
+          // #region agent log
+          dbg('A', 'iframe.html:load+1500', 'iframe access after 1.5s', {
+            classify: cls,
+            access: later
+          });
+          // #endregion
+        }, 1500);
+      });
+
+      iframe.addEventListener('error', function (ev) {
+        // #region agent log
+        dbg('A', 'iframe.html:error', 'iframe error event', {
+          url: currentUrl,
+          type: ev.type
+        });
+        // #endregion
+      });
+
+      loadForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        loadFrame(buildUrl(codeInput.value));
       });
 
       reloadBtn.addEventListener('click', function () {
+        if (!currentUrl) {
+          loadFrame(buildUrl(codeInput.value));
+          return;
+        }
         loader.classList.remove('hidden');
+        loaderText.textContent = 'Reloading…';
         status.textContent = 'Reloading…';
-        iframe.src = targetUrl;
+        loadStartedAt = Date.now();
+        // #region agent log
+        dbg('B', 'iframe.html:reload', 'reload iframe', { url: currentUrl });
+        // #endregion
+        iframe.src = currentUrl;
       });
 
       window.addEventListener('message', function (event) {
@@ -241,11 +573,72 @@
             typeof event.data === 'string'
               ? event.data
               : JSON.stringify(event.data);
+          // Ignore extension / same-origin tooling noise
+          if (
+            origin === location.origin ||
+            data.indexOf('react-devtools') !== -1 ||
+            data.indexOf('webpack') !== -1
+          ) {
+            return;
+          }
           status.textContent =
-            'Message from ' + origin + ' · ' + (data.length > 120 ? data.slice(0, 120) + '…' : data);
-        } catch (e) {
-        }
+            'postMessage from ' +
+            origin +
+            ' · ' +
+            (data.length > 140 ? data.slice(0, 140) + '…' : data);
+          // #region agent log
+          const isPaypageV2 = data.indexOf('paypage-v2') !== -1 || data.indexOf('paypage:') !== -1;
+          dbg(isPaypageV2 ? 'B' : 'D', 'iframe.html:postMessage', isPaypageV2 ? 'paypage-v2 lifecycle' : 'message from iframe', {
+            origin: origin,
+            dataPreview: data.length > 300 ? data.slice(0, 300) + '…' : data
+          });
+          // #endregion
+          if (isPaypageV2) {
+            try {
+              const parsed = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+              const label =
+                (parsed && parsed.type ? parsed.type : 'paypage') +
+                (parsed && parsed.status ? ':' + parsed.status : '') +
+                (parsed && parsed.orderState ? ' (' + parsed.orderState + ')' : '') +
+                (parsed && parsed.message ? ' — ' + parsed.message : '');
+              status.textContent = 'Paypage v2 · ' + label;
+              status.style.background =
+                parsed && parsed.status === 'error'
+                  ? 'rgba(185,28,28,.55)'
+                  : parsed && parsed.status === 'ready'
+                    ? 'rgba(4,120,87,.55)'
+                    : '';
+            } catch (e2) {}
+          }
+        } catch (e) {}
       });
+
+      document.getElementById('symptomBar').addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-symptom]');
+        if (!btn) return;
+        // #region agent log
+        dbg('B', 'iframe.html:symptom', 'user reported iframe symptom', {
+          symptom: btn.getAttribute('data-symptom'),
+          url: currentUrl,
+          classify: currentUrl ? classifyEnv(currentUrl) : null,
+          ua: navigator.userAgent
+        });
+        // #endregion
+        status.textContent = 'Symptom logged: ' + btn.getAttribute('data-symptom');
+      });
+
+      openBtn.addEventListener('click', function () {
+        // #region agent log
+        dbg('E', 'iframe.html:openTab', 'open in new tab clicked', {
+          url: currentUrl || openBtn.href,
+          classify: currentUrl ? classifyEnv(currentUrl) : null
+        });
+        // #endregion
+      });
+
+      if (initialCode) {
+        loadFrame(buildUrl(initialCode));
+      }
     })();
   </script>
 </body>
