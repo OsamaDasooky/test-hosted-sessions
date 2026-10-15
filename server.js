@@ -171,39 +171,6 @@ console.log(identityUrl);
   }
 });
 
-// ── Debug log ingest (local LAN debugging only) ───────────────────────────────
-if (process.env.NODE_ENV !== 'production') {
-  const fs = require('fs');
-  const DEBUG_LOG_PATH = path.join(__dirname, '.cursor', 'debug-344881.log');
-  const DEBUG_INGEST = 'http://127.0.0.1:7390/ingest/cd52aa38-a1f3-4764-918c-37559c3115dc';
-
-  app.post('/api/debug-log', async (req, res) => {
-    const payload = {
-      sessionId: '344881',
-      timestamp: Date.now(),
-      ...req.body
-    };
-    try {
-      fs.mkdirSync(path.dirname(DEBUG_LOG_PATH), { recursive: true });
-      fs.appendFileSync(DEBUG_LOG_PATH, JSON.stringify(payload) + '\n');
-    } catch (err) {
-      console.error('debug-log file write failed:', err.message);
-    }
-    try {
-      await axios.post(DEBUG_INGEST, payload, {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Debug-Session-Id': '344881'
-        },
-        timeout: 2000
-      });
-    } catch (_) {
-      /* ingest optional */
-    }
-    res.status(204).end();
-  });
-}
-
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, HOST, () =>
   console.log(`✅  Server running → http://${HOST}:${PORT}`)

@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Permissions-Policy" content="payment=*, publickey-credentials-get=*" />
   <title>Paypage v2 – Iframe Demo</title>
   <style>
     *,
@@ -194,7 +193,6 @@
     }
 
     iframe {
-      /* Explicit height: iOS Safari often collapses flex:1 iframes to 0 */
       flex: 1 1 auto;
       width: 100%;
       height: 75vh;
@@ -278,27 +276,16 @@
           <div class="spinner" aria-hidden="true"></div>
           <span id="loaderText">Enter a payment code and click Load</span>
         </div>
-        <!-- allow=payment: required so Safari lets Payment Request / Apple Pay run inside the cross-origin paypage -->
         <iframe
           id="paymentFrame"
           title="Paypage"
           allow="payment *; publickey-credentials-get *; clipboard-read *; clipboard-write *"
           referrerpolicy="strict-origin-when-cross-origin"
         ></iframe>
-        <div id="safariHint" style="display:none;padding:12px 16px;background:#fff7ed;color:#9a3412;font-size:13px;border-top:1px solid #fed7aa;"></div>
       </div>
     </main>
 
     <footer class="statusbar" id="statusbar">Waiting for payment code…</footer>
-    <div id="symptomBar" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 24px;background:rgba(0,0,0,.25);">
-      <span style="color:#fff;font-size:12px;align-self:center;">What do you see in the iframe?</span>
-      <button type="button" data-symptom="blank_white" style="appearance:none;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;">Blank / white</button>
-      <button type="button" data-symptom="spinner_stuck" style="appearance:none;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;">Spinner stuck</button>
-      <button type="button" data-symptom="access_denied_403" style="appearance:none;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;">Access Denied / 403</button>
-      <button type="button" data-symptom="error_other" style="appearance:none;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:12px;padding:6px 10px;border-radius:8px;">Other error</button>
-      <button type="button" data-symptom="works" style="appearance:none;border:1px solid rgba(255,255,255,.35);background:#14b8a6;color:#042f2e;font-size:12px;padding:6px 10px;border-radius:8px;font-weight:600;">Works</button>
-    </div>
-    <pre id="diagPanel" style="margin:0;padding:10px 24px 16px;font-size:11px;color:#d1fae5;background:rgba(0,0,0,.35);max-height:160px;overflow:auto;white-space:pre-wrap;"></pre>
   </div>
 
   <script>
@@ -307,18 +294,12 @@
       const loader = document.getElementById('loader');
       const loaderText = document.getElementById('loaderText');
       const status = document.getElementById('statusbar');
-      const diagPanel = document.getElementById('diagPanel');
       const envSelect = document.getElementById('envSelect');
       const codeInput = document.getElementById('codeInput');
       const loadForm = document.getElementById('loadForm');
       const reloadBtn = document.getElementById('reloadBtn');
       const openBtn = document.getElementById('openBtn');
 
-      const runId = 'repro2-' + Date.now();
-      const diagLines = [];
-      const capturedErrors = [];
-
-      // Keep Local env on this machine's LAN IP (avoids stale hardcoded addresses)
       (function syncLocalEnvIp() {
         const localOpt = document.getElementById('localEnvOption');
         if (!localOpt) return;
@@ -329,231 +310,21 @@
         localOpt.textContent = 'Local (' + localHost + ':8080)';
       })();
 
-      // #region agent log
-      function dbg(hypothesisId, location, message, data) {
-        const payload = {
-          sessionId: '344881',
-          runId: runId,
-          hypothesisId: hypothesisId,
-          location: location,
-          message: message,
-          data: data || {},
-          timestamp: Date.now()
-        };
-        const line =
-          '[' + hypothesisId + '] ' + message +
-          (data ? ' ' + JSON.stringify(data) : '');
-        diagLines.push(line);
-        if (diagLines.length > 40) diagLines.shift();
-        diagPanel.textContent = diagLines.join('\n');
-        fetch('/api/debug-log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        }).catch(function () {});
-        fetch('http://127.0.0.1:7390/ingest/cd52aa38-a1f3-4764-918c-37559c3115dc', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Debug-Session-Id': '344881'
-          },
-          body: JSON.stringify(payload)
-        }).catch(function () {});
-      }
-
-      function paymentPolicySnapshot() {
-        const snap = {
-          iframeAllow: iframe.getAttribute('allow'),
-          iframeSandbox: iframe.getAttribute('sandbox'),
-          parentPaymentAllowed: null,
-          isSecureContext: window.isSecureContext,
-          hostname: location.hostname,
-          isLocalhost: location.hostname === 'localhost' || location.hostname === '127.0.0.1',
-          isSafari: /Safari/i.test(navigator.userAgent) && !/Chrome|CriOS|Android/i.test(navigator.userAgent)
-        };
-        try {
-          if (document.featurePolicy && document.featurePolicy.allowsFeature) {
-            snap.parentPaymentAllowed = document.featurePolicy.allowsFeature('payment');
-          } else if (document.permissionsPolicy && document.permissionsPolicy.allowsFeature) {
-            snap.parentPaymentAllowed = document.permissionsPolicy.allowsFeature('payment');
-          }
-        } catch (e) {
-          snap.parentPaymentAllowed = 'ERR:' + e.name;
-        }
-        return snap;
-      }
-
-      // Hypothesis F: catch any parent-page fetch to paypage (would cause Safari CORS with our origin)
-      (function hookFetch() {
-        const orig = window.fetch;
-        window.fetch = function (input, init) {
-          try {
-            const u = typeof input === 'string' ? input : (input && input.url) || '';
-            if (u && /paypage|platform\.network\.ae|ngenius-payments\.com/i.test(u) && u.indexOf('/api/') === -1) {
-              dbg('F', 'iframe.html:fetchHook', 'parent fetch toward paypage', {
-                url: String(u).slice(0, 200),
-                mode: (init && init.mode) || null
-              });
-            }
-          } catch (e) {}
-          return orig.apply(this, arguments);
-        };
-      })();
-
-      window.addEventListener('error', function (ev) {
-        const msg = String((ev && ev.message) || '');
-        const entry = {
-          message: msg.slice(0, 240),
-          filename: (ev && ev.filename) || null,
-          isCors: /Access-Control-Allow-Origin|access control checks/i.test(msg),
-          isPaymentPolicy: /Permission policy.*Payment|payment/i.test(msg)
-        };
-        capturedErrors.push(entry);
-        dbg(
-          entry.isCors ? 'F' : entry.isPaymentPolicy ? 'G' : 'H',
-          'iframe.html:windowError',
-          'window error event',
-          entry
-        );
-      }, true);
-
-      const _cerr = console.error;
-      console.error = function () {
-        try {
-          const msg = Array.prototype.slice.call(arguments).map(String).join(' ');
-          if (/Access-Control-Allow-Origin|access control checks|Permission policy|Payment/i.test(msg)) {
-            dbg('F', 'iframe.html:console.error', 'console.error capture', {
-              message: msg.slice(0, 300)
-            });
-          }
-        } catch (e) {}
-        return _cerr.apply(console, arguments);
-      };
-      // #endregion
-
-      function probeParentStorage() {
-        const result = { localStorage: null, sessionStorage: null, cookie: null };
-        try {
-          localStorage.setItem('__dbg', '1');
-          result.localStorage = localStorage.getItem('__dbg') === '1';
-          localStorage.removeItem('__dbg');
-        } catch (e) {
-          result.localStorage = 'ERR:' + e.name;
-        }
-        try {
-          sessionStorage.setItem('__dbg', '1');
-          result.sessionStorage = sessionStorage.getItem('__dbg') === '1';
-          sessionStorage.removeItem('__dbg');
-        } catch (e) {
-          result.sessionStorage = 'ERR:' + e.name;
-        }
-        try {
-          document.cookie = '__dbg=1; path=/; SameSite=None; Secure';
-          result.cookie = document.cookie.indexOf('__dbg=') !== -1;
-        } catch (e) {
-          result.cookie = 'ERR:' + e.name;
-        }
-        return result;
-      }
-
-      function classifyEnv(url) {
-        try {
-          const u = new URL(url);
-          const isV2 = u.pathname.indexOf('/v2') === 0 || u.pathname.indexOf('/v2/') === 0;
-          const host = u.hostname;
-          return {
-            isV2: isV2,
-            host: host,
-            isClassic: !isV2,
-            isNgenius: host.indexOf('ngenius-payments.com') !== -1,
-            isPlatform: host.indexOf('platform.network.ae') !== -1
-          };
-        } catch (e) {
-          return { error: String(e) };
-        }
-      }
-
-      function inspectIframeAccess() {
-        const info = {
-          src: iframe.src,
-          accessible: null,
-          href: null,
-          aboutBlank: null,
-          crossOriginLikely: null
-        };
-        try {
-          const href = iframe.contentWindow.location.href;
-          info.accessible = true;
-          info.href = href;
-          info.aboutBlank = href === 'about:blank';
-          info.crossOriginLikely = false;
-        } catch (e) {
-          info.accessible = false;
-          info.href = null;
-          info.aboutBlank = false;
-          info.crossOriginLikely = e.name === 'SecurityError' || /cross-origin|Blocked a frame/i.test(String(e));
-          info.errorName = e.name;
-          info.errorMessage = String(e.message || e).slice(0, 120);
-        }
-        return info;
-      }
-
-      async function probePaypageHeaders(url) {
-        try {
-          const res = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit', cache: 'no-store' });
-          return {
-            ok: res.ok,
-            status: res.status,
-            type: res.type,
-            csp: res.headers.get('content-security-policy'),
-            xfo: res.headers.get('x-frame-options'),
-            setCookie: res.headers.get('set-cookie'),
-            coop: res.headers.get('cross-origin-opener-policy'),
-            corp: res.headers.get('cross-origin-resource-policy')
-          };
-        } catch (e) {
-          // Opaque/cors failure is expected for many paypage hosts; still useful signal
-          return { ok: false, error: e.name + ':' + e.message, note: 'cors-or-network' };
-        }
-      }
-
-      // #region agent log
-      const bootPolicy = paymentPolicySnapshot();
-      dbg('G', 'iframe.html:boot', 'parent boot', {
-        ua: navigator.userAgent,
-        topOrigin: location.origin,
-        topHref: location.href,
-        protocol: location.protocol,
-        standalone: !!(navigator.standalone),
-        storage: probeParentStorage(),
-        cookieEnabled: navigator.cookieEnabled,
-        paymentPolicy: bootPolicy,
-        note: !bootPolicy.isSecureContext
-          ? 'HTTP LAN IP is NOT a secure context; Safari Payment Request often fails in iframe'
-          : 'secure context ok'
-      });
-      const safariHint = document.getElementById('safariHint');
-      if (safariHint && bootPolicy.isSafari && !bootPolicy.isSecureContext) {
-        safariHint.style.display = 'block';
-        safariHint.innerHTML =
-          'Safari on <code>http://' + location.hostname + '</code> is not a secure context, so Payment / Apple Pay inside the iframe often fails. ' +
-          'Use <code>http://localhost:' + location.port + '/iframe.html</code> on this Mac, or open the paypage with <b>Open tab</b> (top-level HTTPS).';
-      }
-      // #endregion
-
       const params = new URLSearchParams(window.location.search);
       const initialCode = params.get('code') || '';
       const initialEnv = params.get('env');
       if (initialCode) codeInput.value = initialCode;
       if (initialEnv) {
         const match = Array.from(envSelect.options).find(function (o) {
-          return o.value.indexOf(initialEnv) !== -1 || o.textContent.toLowerCase() === initialEnv.toLowerCase();
+          return (
+            o.value.indexOf(initialEnv) !== -1 ||
+            o.textContent.toLowerCase() === initialEnv.toLowerCase()
+          );
         });
         if (match) envSelect.value = match.value;
       }
 
       let currentUrl = '';
-      let loadStartedAt = 0;
 
       function buildUrl(raw) {
         const value = (raw || '').trim();
@@ -563,6 +334,39 @@
         if (!base.endsWith('/')) base += '/';
         const code = value.replace(/^\?code=/, '').replace(/^code=/, '');
         return base + '?code=' + encodeURIComponent(code);
+      }
+
+      function syncQuery(url) {
+        try {
+          const next = new URL(window.location.href);
+          const u = new URL(url);
+          const code = u.searchParams.get('code');
+          if (code) next.searchParams.set('code', code);
+          if (
+            u.port === '8080' ||
+            u.port === '8081' ||
+            u.hostname === 'localhost' ||
+            u.hostname === '127.0.0.1'
+          ) {
+            next.searchParams.set('env', 'local');
+          } else if (u.pathname.indexOf('/v2') === 0) {
+            next.searchParams.set(
+              'env',
+              u.hostname.indexOf('sandbox') !== -1
+                ? 'sandbox'
+                : u.hostname.indexOf('dev') !== -1
+                  ? 'dev'
+                  : 'production'
+            );
+          } else if (u.hostname.indexOf('sandbox') !== -1) {
+            next.searchParams.set('env', 'sandbox-classic');
+          } else if (u.hostname.indexOf('dev') !== -1) {
+            next.searchParams.set('env', 'dev-classic');
+          } else {
+            next.searchParams.set('env', 'production');
+          }
+          history.replaceState(null, '', next.toString());
+        } catch (e) {}
       }
 
       function loadFrame(url) {
@@ -575,103 +379,15 @@
         loader.classList.remove('hidden');
         loaderText.textContent = 'Loading paypage…';
         status.textContent = 'Loading · ' + url;
-        loadStartedAt = Date.now();
-
-        const cls = classifyEnv(url);
-        // #region agent log
-        dbg('B', 'iframe.html:loadFrame', 'loading iframe src', {
-          url: url,
-          envLabel: envSelect.options[envSelect.selectedIndex].text,
-          classify: cls,
-          paymentPolicy: paymentPolicySnapshot(),
-          plainIframe: !iframe.getAttribute('sandbox') && !iframe.getAttribute('allow')
-        });
-        // #endregion
-
         iframe.src = url;
-
-        // #region agent log
-        // Hypothesis A fix: do not CORS-fetch the paypage URL (Safari logs that as Access-Control-Allow-Origin).
-        // Optional: ?probe=1 re-enables the old diagnostic fetch.
-        const enableProbe = new URLSearchParams(window.location.search).get('probe') === '1';
-        dbg('A', 'iframe.html:probe', enableProbe ? 'cors probe enabled via ?probe=1' : 'cors probe skipped (Safari fix)', {
-          url: url,
-          enableProbe: enableProbe,
-          paymentPolicy: paymentPolicySnapshot()
-        });
-        if (enableProbe) {
-          probePaypageHeaders(url).then(function (headers) {
-            dbg(
-              headers && headers.note === 'cors-or-network' ? 'A' : 'C',
-              'iframe.html:headers',
-              'paypage header probe result',
-              { url: url, headers: headers, likelyCausesConsoleCors: !!(headers && headers.note === 'cors-or-network') }
-            );
-          });
-        }
-        // #endregion
-
-        const next = new URL(window.location.href);
-        try {
-          const u = new URL(url);
-          const code = u.searchParams.get('code');
-          if (code) next.searchParams.set('code', code);
-          if (
-            u.port === '8080' ||
-            u.port === '8081' ||
-            u.hostname === 'localhost' ||
-            u.hostname === '127.0.0.1'
-          ) {
-            next.searchParams.set('env', 'local');
-          } else if (u.pathname.indexOf('/v2') === 0) {
-            next.searchParams.set('env', u.hostname.indexOf('sandbox') !== -1 ? 'sandbox' : u.hostname.indexOf('dev') !== -1 ? 'dev' : 'production');
-          } else if (u.hostname.indexOf('sandbox') !== -1) {
-            next.searchParams.set('env', 'sandbox-classic');
-          } else if (u.hostname.indexOf('dev') !== -1) {
-            next.searchParams.set('env', 'dev-classic');
-          } else {
-            next.searchParams.set('env', 'production');
-          }
-          history.replaceState(null, '', next.toString());
-        } catch (e) {}
+        syncQuery(url);
       }
 
       iframe.addEventListener('load', function () {
         if (!currentUrl) return;
-        const elapsed = Date.now() - loadStartedAt;
         loader.classList.add('hidden');
-        status.textContent = 'Loaded · ' + currentUrl + ' · ' + new Date().toLocaleTimeString();
-        const access = inspectIframeAccess();
-        const cls = classifyEnv(currentUrl);
-        // #region agent log
-        dbg(access.aboutBlank ? 'D' : access.crossOriginLikely ? 'D' : 'D', 'iframe.html:load', 'iframe load event', {
-          elapsedMs: elapsed,
-          classify: cls,
-          access: access,
-          paymentPolicy: paymentPolicySnapshot()
-        });
-        // #endregion
-
-        // Delayed re-check: Akamai challenge / SPA boot may change accessibility briefly
-        setTimeout(function () {
-          const later = inspectIframeAccess();
-          // #region agent log
-          dbg('D', 'iframe.html:load+1500', 'iframe access after 1.5s', {
-            classify: cls,
-            access: later,
-            paymentPolicy: paymentPolicySnapshot()
-          });
-          // #endregion
-        }, 1500);
-      });
-
-      iframe.addEventListener('error', function (ev) {
-        // #region agent log
-        dbg('A', 'iframe.html:error', 'iframe error event', {
-          url: currentUrl,
-          type: ev.type
-        });
-        // #endregion
+        status.textContent =
+          'Loaded · ' + currentUrl + ' · ' + new Date().toLocaleTimeString();
       });
 
       loadForm.addEventListener('submit', function (e) {
@@ -687,81 +403,7 @@
         loader.classList.remove('hidden');
         loaderText.textContent = 'Reloading…';
         status.textContent = 'Reloading…';
-        loadStartedAt = Date.now();
-        // #region agent log
-        dbg('B', 'iframe.html:reload', 'reload iframe', { url: currentUrl });
-        // #endregion
         iframe.src = currentUrl;
-      });
-
-      window.addEventListener('message', function (event) {
-        try {
-          const origin = event.origin || '(unknown)';
-          const data =
-            typeof event.data === 'string'
-              ? event.data
-              : JSON.stringify(event.data);
-          // Ignore extension / same-origin tooling noise
-          if (
-            origin === location.origin ||
-            data.indexOf('react-devtools') !== -1 ||
-            data.indexOf('webpack') !== -1
-          ) {
-            return;
-          }
-          status.textContent =
-            'postMessage from ' +
-            origin +
-            ' · ' +
-            (data.length > 140 ? data.slice(0, 140) + '…' : data);
-          // #region agent log
-          const isPaypageV2 = data.indexOf('paypage-v2') !== -1 || data.indexOf('paypage:') !== -1;
-          dbg(isPaypageV2 ? 'B' : 'D', 'iframe.html:postMessage', isPaypageV2 ? 'paypage-v2 lifecycle' : 'message from iframe', {
-            origin: origin,
-            dataPreview: data.length > 300 ? data.slice(0, 300) + '…' : data
-          });
-          // #endregion
-          if (isPaypageV2) {
-            try {
-              const parsed = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-              const label =
-                (parsed && parsed.type ? parsed.type : 'paypage') +
-                (parsed && parsed.status ? ':' + parsed.status : '') +
-                (parsed && parsed.orderState ? ' (' + parsed.orderState + ')' : '') +
-                (parsed && parsed.message ? ' — ' + parsed.message : '');
-              status.textContent = 'Paypage v2 · ' + label;
-              status.style.background =
-                parsed && parsed.status === 'error'
-                  ? 'rgba(185,28,28,.55)'
-                  : parsed && parsed.status === 'ready'
-                    ? 'rgba(4,120,87,.55)'
-                    : '';
-            } catch (e2) {}
-          }
-        } catch (e) {}
-      });
-
-      document.getElementById('symptomBar').addEventListener('click', function (e) {
-        const btn = e.target.closest('[data-symptom]');
-        if (!btn) return;
-        // #region agent log
-        dbg('B', 'iframe.html:symptom', 'user reported iframe symptom', {
-          symptom: btn.getAttribute('data-symptom'),
-          url: currentUrl,
-          classify: currentUrl ? classifyEnv(currentUrl) : null,
-          ua: navigator.userAgent
-        });
-        // #endregion
-        status.textContent = 'Symptom logged: ' + btn.getAttribute('data-symptom');
-      });
-
-      openBtn.addEventListener('click', function () {
-        // #region agent log
-        dbg('E', 'iframe.html:openTab', 'open in new tab clicked', {
-          url: currentUrl || openBtn.href,
-          classify: currentUrl ? classifyEnv(currentUrl) : null
-        });
-        // #endregion
       });
 
       if (initialCode) {
