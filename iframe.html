@@ -245,7 +245,7 @@
         <label>
           Environment
           <select id="envSelect" name="env">
-            <option value="http://10.125.131.35:8080/v2">Local</option>
+            <option value="http://10.125.131.29:8080/" id="localEnvOption">Local</option>
             <option value="https://paypage-dev.platform.network.ae/v2/">Dev v2</option>
             <option value="https://paypage-sandbox.platform.network.ae/v2/">Sandbox v2</option>
             <option value="https://paypage.platform.network.ae/v2/">Production v2</option>
@@ -317,6 +317,17 @@
       const runId = 'repro2-' + Date.now();
       const diagLines = [];
       const capturedErrors = [];
+
+      // Keep Local env on this machine's LAN IP (avoids stale hardcoded addresses)
+      (function syncLocalEnvIp() {
+        const localOpt = document.getElementById('localEnvOption');
+        if (!localOpt) return;
+        const host = location.hostname;
+        const localHost =
+          host && host !== 'localhost' && host !== '127.0.0.1' ? host : '10.125.131.29';
+        localOpt.value = 'http://' + localHost + ':8080/';
+        localOpt.textContent = 'Local (' + localHost + ':8080)';
+      })();
 
       // #region agent log
       function dbg(hypothesisId, location, message, data) {
@@ -605,7 +616,12 @@
           const u = new URL(url);
           const code = u.searchParams.get('code');
           if (code) next.searchParams.set('code', code);
-          if (u.port === '8081' || u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
+          if (
+            u.port === '8080' ||
+            u.port === '8081' ||
+            u.hostname === 'localhost' ||
+            u.hostname === '127.0.0.1'
+          ) {
             next.searchParams.set('env', 'local');
           } else if (u.pathname.indexOf('/v2') === 0) {
             next.searchParams.set('env', u.hostname.indexOf('sandbox') !== -1 ? 'sandbox' : u.hostname.indexOf('dev') !== -1 ? 'dev' : 'production');
