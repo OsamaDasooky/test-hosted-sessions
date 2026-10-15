@@ -27,6 +27,15 @@ const HOST = process.env.HOST || '0.0.0.0';
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
+// Let Safari delegate Payment Request / Apple Pay into cross-origin paypage iframes
+app.use((_req, res, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    'payment=*, publickey-credentials-get=*'
+  );
+  next();
+});
+
 // Health check for platform probes (Render, Railway, etc.)
 app.get('/health', (_req, res) => {
   res.status(200).json({ ok: true });
@@ -165,12 +174,12 @@ console.log(identityUrl);
 // ── Debug log ingest (local LAN debugging only) ───────────────────────────────
 if (process.env.NODE_ENV !== 'production') {
   const fs = require('fs');
-  const DEBUG_LOG_PATH = path.join(__dirname, '.cursor', 'debug-09053b.log');
-  const DEBUG_INGEST = 'http://127.0.0.1:7832/ingest/c3ddfd12-4573-4bcc-97ee-f72c54d8ba4b';
+  const DEBUG_LOG_PATH = path.join(__dirname, '.cursor', 'debug-344881.log');
+  const DEBUG_INGEST = 'http://127.0.0.1:7390/ingest/cd52aa38-a1f3-4764-918c-37559c3115dc';
 
   app.post('/api/debug-log', async (req, res) => {
     const payload = {
-      sessionId: '09053b',
+      sessionId: '344881',
       timestamp: Date.now(),
       ...req.body
     };
@@ -184,7 +193,7 @@ if (process.env.NODE_ENV !== 'production') {
       await axios.post(DEBUG_INGEST, payload, {
         headers: {
           'Content-Type': 'application/json',
-          'X-Debug-Session-Id': '09053b'
+          'X-Debug-Session-Id': '344881'
         },
         timeout: 2000
       });

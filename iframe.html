@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Permissions-Policy" content="payment=*, publickey-credentials-get=*" />
   <title>Paypage v2 – Iframe Demo</title>
   <style>
     *,
@@ -244,7 +245,7 @@
         <label>
           Environment
           <select id="envSelect" name="env">
-            <option value="http://192.168.1.23:8080/">Local</option>
+            <option value="http://10.125.131.35:8080/v2">Local</option>
             <option value="https://paypage-dev.platform.network.ae/v2/">Dev v2</option>
             <option value="https://paypage-sandbox.platform.network.ae/v2/">Sandbox v2</option>
             <option value="https://paypage.platform.network.ae/v2/">Production v2</option>
@@ -277,11 +278,14 @@
           <div class="spinner" aria-hidden="true"></div>
           <span id="loaderText">Enter a payment code and click Load</span>
         </div>
-        <!-- Plain iframe — same style as classic paypage embeds (no sandbox / special attrs) -->
+        <!-- allow=payment: required so Safari lets Payment Request / Apple Pay run inside the cross-origin paypage -->
         <iframe
           id="paymentFrame"
           title="Paypage"
+          allow="payment *; publickey-credentials-get *; clipboard-read *; clipboard-write *"
+          referrerpolicy="strict-origin-when-cross-origin"
         ></iframe>
+        <div id="safariHint" style="display:none;padding:12px 16px;background:#fff7ed;color:#9a3412;font-size:13px;border-top:1px solid #fed7aa;"></div>
       </div>
     </main>
 
@@ -310,11 +314,21 @@
       const reloadBtn = document.getElementById('reloadBtn');
       const openBtn = document.getElementById('openBtn');
 
-      const runId = 'ios-iframe-' + Date.now();
+      const runId = 'repro2-' + Date.now();
       const diagLines = [];
+      const capturedErrors = [];
 
       // #region agent log
       function dbg(hypothesisId, location, message, data) {
+        const payload = {
+          sessionId: '344881',
+          runId: runId,
+          hypothesisId: hypothesisId,
+          location: location,
+          message: message,
+          data: data || {},
+          timestamp: Date.now()
+        };
         const line =
           '[' + hypothesisId + '] ' + message +
           (data ? ' ' + JSON.stringify(data) : '');
@@ -324,17 +338,86 @@
         fetch('/api/debug-log', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId: '09053b',
-            runId: runId,
-            hypothesisId: hypothesisId,
-            location: location,
-            message: message,
-            data: data || {},
-            timestamp: Date.now()
-          })
+          body: JSON.stringify(payload)
+        }).catch(function () {});
+        fetch('http://127.0.0.1:7390/ingest/cd52aa38-a1f3-4764-918c-37559c3115dc', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Debug-Session-Id': '344881'
+          },
+          body: JSON.stringify(payload)
         }).catch(function () {});
       }
+
+      function paymentPolicySnapshot() {
+        const snap = {
+          iframeAllow: iframe.getAttribute('allow'),
+          iframeSandbox: iframe.getAttribute('sandbox'),
+          parentPaymentAllowed: null,
+          isSecureContext: window.isSecureContext,
+          hostname: location.hostname,
+          isLocalhost: location.hostname === 'localhost' || location.hostname === '127.0.0.1',
+          isSafari: /Safari/i.test(navigator.userAgent) && !/Chrome|CriOS|Android/i.test(navigator.userAgent)
+        };
+        try {
+          if (document.featurePolicy && document.featurePolicy.allowsFeature) {
+            snap.parentPaymentAllowed = document.featurePolicy.allowsFeature('payment');
+          } else if (document.permissionsPolicy && document.permissionsPolicy.allowsFeature) {
+            snap.parentPaymentAllowed = document.permissionsPolicy.allowsFeature('payment');
+          }
+        } catch (e) {
+          snap.parentPaymentAllowed = 'ERR:' + e.name;
+        }
+        return snap;
+      }
+
+      // Hypothesis F: catch any parent-page fetch to paypage (would cause Safari CORS with our origin)
+      (function hookFetch() {
+        const orig = window.fetch;
+        window.fetch = function (input, init) {
+          try {
+            const u = typeof input === 'string' ? input : (input && input.url) || '';
+            if (u && /paypage|platform\.network\.ae|ngenius-payments\.com/i.test(u) && u.indexOf('/api/') === -1) {
+              dbg('F', 'iframe.html:fetchHook', 'parent fetch toward paypage', {
+                url: String(u).slice(0, 200),
+                mode: (init && init.mode) || null
+              });
+            }
+          } catch (e) {}
+          return orig.apply(this, arguments);
+        };
+      })();
+
+      window.addEventListener('error', function (ev) {
+        const msg = String((ev && ev.message) || '');
+        const entry = {
+          message: msg.slice(0, 240),
+          filename: (ev && ev.filename) || null,
+          isCors: /Access-Control-Allow-Origin|access control checks/i.test(msg),
+          isPaymentPolicy: /Permission policy.*Payment|payment/i.test(msg)
+        };
+        capturedErrors.push(entry);
+        dbg(
+          entry.isCors ? 'F' : entry.isPaymentPolicy ? 'G' : 'H',
+          'iframe.html:windowError',
+          'window error event',
+          entry
+        );
+      }, true);
+
+      const _cerr = console.error;
+      console.error = function () {
+        try {
+          const msg = Array.prototype.slice.call(arguments).map(String).join(' ');
+          if (/Access-Control-Allow-Origin|access control checks|Permission policy|Payment/i.test(msg)) {
+            dbg('F', 'iframe.html:console.error', 'console.error capture', {
+              message: msg.slice(0, 300)
+            });
+          }
+        } catch (e) {}
+        return _cerr.apply(console, arguments);
+      };
       // #endregion
 
       function probeParentStorage() {
@@ -424,15 +507,27 @@
       }
 
       // #region agent log
-      dbg('E', 'iframe.html:boot', 'parent boot', {
+      const bootPolicy = paymentPolicySnapshot();
+      dbg('G', 'iframe.html:boot', 'parent boot', {
         ua: navigator.userAgent,
         topOrigin: location.origin,
         topHref: location.href,
         protocol: location.protocol,
         standalone: !!(navigator.standalone),
         storage: probeParentStorage(),
-        cookieEnabled: navigator.cookieEnabled
+        cookieEnabled: navigator.cookieEnabled,
+        paymentPolicy: bootPolicy,
+        note: !bootPolicy.isSecureContext
+          ? 'HTTP LAN IP is NOT a secure context; Safari Payment Request often fails in iframe'
+          : 'secure context ok'
       });
+      const safariHint = document.getElementById('safariHint');
+      if (safariHint && bootPolicy.isSafari && !bootPolicy.isSecureContext) {
+        safariHint.style.display = 'block';
+        safariHint.innerHTML =
+          'Safari on <code>http://' + location.hostname + '</code> is not a secure context, so Payment / Apple Pay inside the iframe often fails. ' +
+          'Use <code>http://localhost:' + location.port + '/iframe.html</code> on this Mac, or open the paypage with <b>Open tab</b> (top-level HTTPS).';
+      }
       // #endregion
 
       const params = new URLSearchParams(window.location.search);
@@ -473,22 +568,37 @@
 
         const cls = classifyEnv(url);
         // #region agent log
-          dbg('A', 'iframe.html:loadFrame', 'loading iframe src', {
+        dbg('B', 'iframe.html:loadFrame', 'loading iframe src', {
           url: url,
           envLabel: envSelect.options[envSelect.selectedIndex].text,
           classify: cls,
+          paymentPolicy: paymentPolicySnapshot(),
           plainIframe: !iframe.getAttribute('sandbox') && !iframe.getAttribute('allow')
         });
         // #endregion
 
         iframe.src = url;
 
-        // Header probe in parallel (hypothesis C)
-        probePaypageHeaders(url).then(function (headers) {
-          // #region agent log
-          dbg('C', 'iframe.html:headers', 'paypage header probe', { url: url, headers: headers });
-          // #endregion
+        // #region agent log
+        // Hypothesis A fix: do not CORS-fetch the paypage URL (Safari logs that as Access-Control-Allow-Origin).
+        // Optional: ?probe=1 re-enables the old diagnostic fetch.
+        const enableProbe = new URLSearchParams(window.location.search).get('probe') === '1';
+        dbg('A', 'iframe.html:probe', enableProbe ? 'cors probe enabled via ?probe=1' : 'cors probe skipped (Safari fix)', {
+          url: url,
+          enableProbe: enableProbe,
+          paymentPolicy: paymentPolicySnapshot()
         });
+        if (enableProbe) {
+          probePaypageHeaders(url).then(function (headers) {
+            dbg(
+              headers && headers.note === 'cors-or-network' ? 'A' : 'C',
+              'iframe.html:headers',
+              'paypage header probe result',
+              { url: url, headers: headers, likelyCausesConsoleCors: !!(headers && headers.note === 'cors-or-network') }
+            );
+          });
+        }
+        // #endregion
 
         const next = new URL(window.location.href);
         try {
@@ -518,10 +628,11 @@
         const access = inspectIframeAccess();
         const cls = classifyEnv(currentUrl);
         // #region agent log
-        dbg(access.aboutBlank ? 'C' : access.crossOriginLikely ? 'D' : 'C', 'iframe.html:load', 'iframe load event', {
+        dbg(access.aboutBlank ? 'D' : access.crossOriginLikely ? 'D' : 'D', 'iframe.html:load', 'iframe load event', {
           elapsedMs: elapsed,
           classify: cls,
-          access: access
+          access: access,
+          paymentPolicy: paymentPolicySnapshot()
         });
         // #endregion
 
@@ -529,9 +640,10 @@
         setTimeout(function () {
           const later = inspectIframeAccess();
           // #region agent log
-          dbg('A', 'iframe.html:load+1500', 'iframe access after 1.5s', {
+          dbg('D', 'iframe.html:load+1500', 'iframe access after 1.5s', {
             classify: cls,
-            access: later
+            access: later,
+            paymentPolicy: paymentPolicySnapshot()
           });
           // #endregion
         }, 1500);
