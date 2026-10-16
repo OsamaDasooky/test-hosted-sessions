@@ -97,6 +97,23 @@
       color: rgba(255, 255, 255, 0.5);
     }
 
+    .controls label.checkbox {
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+      align-self: flex-end;
+      padding: 8px 0;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .controls label.checkbox input {
+      width: auto;
+      appearance: auto;
+      margin: 0;
+      cursor: pointer;
+    }
+
     .controls button,
     .controls a {
       appearance: none;
@@ -264,6 +281,10 @@
             spellcheck="false"
           />
         </label>
+        <label class="checkbox" title="Toggle iframe allow=&quot;payment *;&quot;">
+          <input id="allowPayment" name="allowPayment" type="checkbox" checked />
+          allow payment
+        </label>
         <button class="primary" type="submit">Load in iframe</button>
         <button id="reloadBtn" type="button" title="Reload iframe">Reload</button>
         <a id="openBtn" href="#" target="_blank" rel="noopener noreferrer">Open tab</a>
@@ -279,7 +300,7 @@
         <iframe
           id="paymentFrame"
           title="Paypage"
-
+          allow="payment *;"
 
         ></iframe>
       </div>
@@ -296,6 +317,7 @@
       const status = document.getElementById('statusbar');
       const envSelect = document.getElementById('envSelect');
       const codeInput = document.getElementById('codeInput');
+      const allowPayment = document.getElementById('allowPayment');
       const loadForm = document.getElementById('loadForm');
       const reloadBtn = document.getElementById('reloadBtn');
       const openBtn = document.getElementById('openBtn');
@@ -313,6 +335,7 @@
       const params = new URLSearchParams(window.location.search);
       const initialCode = params.get('code') || '';
       const initialEnv = params.get('env');
+      const initialAllow = params.get('allowPayment');
       if (initialCode) codeInput.value = initialCode;
       if (initialEnv) {
         const match = Array.from(envSelect.options).find(function (o) {
@@ -323,8 +346,25 @@
         });
         if (match) envSelect.value = match.value;
       }
+      if (initialAllow === '0' || initialAllow === 'false') {
+        allowPayment.checked = false;
+      } else if (initialAllow === '1' || initialAllow === 'true') {
+        allowPayment.checked = true;
+      }
 
       let currentUrl = '';
+
+      function applyAllowPayment() {
+        if (allowPayment.checked) {
+          iframe.setAttribute('allow', 'payment *;');
+        } else {
+          iframe.removeAttribute('allow');
+        }
+      }
+
+      function allowPaymentLabel() {
+        return allowPayment.checked ? 'allow="payment *;"' : 'allow removed';
+      }
 
       function buildUrl(raw) {
         const value = (raw || '').trim();
@@ -342,6 +382,7 @@
           const u = new URL(url);
           const code = u.searchParams.get('code');
           if (code) next.searchParams.set('code', code);
+          next.searchParams.set('allowPayment', allowPayment.checked ? '1' : '0');
           if (
             u.port === '8080' ||
             u.port === '8081' ||
@@ -376,9 +417,10 @@
         }
         currentUrl = url;
         openBtn.href = url;
+        applyAllowPayment();
         loader.classList.remove('hidden');
         loaderText.textContent = 'Loading paypage…';
-        status.textContent = 'Loading · ' + url;
+        status.textContent = 'Loading · ' + url + ' · ' + allowPaymentLabel();
         iframe.src = url;
         syncQuery(url);
       }
@@ -387,7 +429,29 @@
         if (!currentUrl) return;
         loader.classList.add('hidden');
         status.textContent =
-          'Loaded · ' + currentUrl + ' · ' + new Date().toLocaleTimeString();
+          'Loaded · ' +
+          currentUrl +
+          ' · ' +
+          allowPaymentLabel() +
+          ' · ' +
+          new Date().toLocaleTimeString();
+      });
+
+      allowPayment.addEventListener('change', function () {
+        applyAllowPayment();
+        try {
+          const next = new URL(window.location.href);
+          next.searchParams.set('allowPayment', allowPayment.checked ? '1' : '0');
+          history.replaceState(null, '', next.toString());
+        } catch (e) {}
+        if (!currentUrl) {
+          status.textContent = allowPaymentLabel();
+          return;
+        }
+        loader.classList.remove('hidden');
+        loaderText.textContent = 'Reloading with ' + allowPaymentLabel() + '…';
+        status.textContent = 'Reloading · ' + currentUrl + ' · ' + allowPaymentLabel();
+        iframe.src = currentUrl;
       });
 
       loadForm.addEventListener('submit', function (e) {
@@ -400,11 +464,14 @@
           loadFrame(buildUrl(codeInput.value));
           return;
         }
+        applyAllowPayment();
         loader.classList.remove('hidden');
         loaderText.textContent = 'Reloading…';
-        status.textContent = 'Reloading…';
+        status.textContent = 'Reloading… · ' + allowPaymentLabel();
         iframe.src = currentUrl;
       });
+
+      applyAllowPayment();
 
       if (initialCode) {
         loadFrame(buildUrl(initialCode));
